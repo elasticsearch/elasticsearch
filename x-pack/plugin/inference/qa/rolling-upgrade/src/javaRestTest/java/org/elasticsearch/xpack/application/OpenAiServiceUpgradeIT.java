@@ -12,6 +12,7 @@ import org.elasticsearch.common.Strings;
 import org.elasticsearch.inference.TaskType;
 import org.elasticsearch.test.http.MockResponse;
 import org.elasticsearch.test.http.MockWebServer;
+import org.elasticsearch.test.rest.RestTestLegacyFeatures;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
@@ -106,6 +107,30 @@ public class OpenAiServiceUpgradeIT extends InferenceUpgradeTestCase {
             assertEmbeddingInference(upgradedClusterId);
 
             delete(oldClusterId);
+            delete(upgradedClusterId);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testOpenAiInferenceCreateAfterUpgradeFromNonSupportedVersion() throws IOException {
+        assumeFalse(
+            "Old cluster must be before a supported version",
+            oldClusterHasFeature(RestTestLegacyFeatures.OPEN_AI_EMBEDDINGS_ADDED)
+        );
+
+        final String upgradedClusterId = "upgraded-cluster-embeddings";
+        var testTaskType = TaskType.TEXT_EMBEDDING;
+
+        if (isUpgradedCluster()) {
+            String inferenceConfig = embeddingConfigWithModelInServiceSettings(getUrl(openAiEmbeddingsServer));
+            openAiEmbeddingsServer.enqueue(new MockResponse().setResponseCode(200).setBody(embeddingResponse()));
+            put(upgradedClusterId, inferenceConfig, testTaskType);
+
+            var configs = (List<Map<String, Object>>) get(testTaskType, upgradedClusterId).get("endpoints");
+            assertThat(configs, hasSize(1));
+
+            assertEmbeddingInference(upgradedClusterId);
+
             delete(upgradedClusterId);
         }
     }
