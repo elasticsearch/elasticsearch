@@ -21,6 +21,7 @@ import org.elasticsearch.features.NodeFeature;
 import org.elasticsearch.index.IndexVersion;
 import org.elasticsearch.index.IndexVersions;
 import org.elasticsearch.index.mapper.MapperService.MergeReason;
+import org.elasticsearch.search.lookup.SourceFilter;
 import org.elasticsearch.xcontent.ToXContent;
 import org.elasticsearch.xcontent.XContentBuilder;
 
@@ -37,6 +38,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class ObjectMapper extends Mapper {
@@ -809,6 +811,59 @@ public class ObjectMapper extends Mapper {
 
     }
 
+    private static SourceLoader.PatchFieldLoader createPatchField(Mapper mapper, SourceFilter sourceFilter) {
+        if (sourceFilter != null && sourceFilter.shouldFilter(mapper.fullPath())) {
+            return null;
+        }
+        if (mapper instanceof ObjectMapper objMapper) {
+            return objMapper.patchFieldLoader(sourceFilter);
+        }
+        return mapper.patchFieldLoader();
+    }
+
+    protected SourceLoader.PatchFieldLoader patchFieldLoader(SourceFilter sourceFilter) {
+        var loaders = mappers.values()
+            .stream()
+            .map(m -> createPatchField(m, sourceFilter))
+            .filter(l -> l != null)
+            .collect(Collectors.toList());
+        if (loaders.isEmpty()) {
+            return null;
+        }
+        return context -> {
+            final List<SourceLoader.PatchFieldLoader.Leaf> leaves = new ArrayList<>();
+            for (var loader : loaders) {
+                var leaf = loader.leaf(context);
+                if (leaf != null) {
+                    leaves.add(leaf);
+                }
+            }
+            if (leaves.isEmpty()) {
+                return null;
+            }
+            return (doc, acc) -> {
+                for (var leaf : leaves) {
+                    leaf.load(doc, acc);
+                }
+            };
+        };
+    }
+
+    @Override
+    protected SourceLoader.PatchFieldLoader patchFieldLoader() {
+        return patchFieldLoader(null);
+    }
+
+    private static SourceLoader.SyntheticFieldLoader createSyntheticField(Mapper mapper, SourceFilter sourceFilter) {
+        if (sourceFilter != null && sourceFilter.shouldFilter(mapper.fullPath())) {
+            return SourceLoader.SyntheticFieldLoader.NOTHING;
+        }
+        if (mapper instanceof ObjectMapper objMapper) {
+            return objMapper.syntheticFieldLoader(sourceFilter);
+        }
+        return mapper.syntheticFieldLoader();
+    }
+
     ObjectMapper findParentMapper(String leafFieldPath) {
         var pathComponents = leafFieldPath.split("\\.");
         int startPathComponent = 0;
@@ -845,21 +900,32 @@ public class ObjectMapper extends Mapper {
         return null;
     }
 
-    protected SourceLoader.SyntheticFieldLoader syntheticFieldLoader(Stream<Mapper> mappers, boolean isFragment) {
+    protected SourceLoader.SyntheticFieldLoader syntheticFieldLoader(
+        SourceFilter sourceFilter,
+        Stream<Mapper> mappers,
+        boolean isFragment
+    ) {
         var fields = mappers.sorted(Comparator.comparing(Mapper::fullPath))
-            .map(Mapper::syntheticFieldLoader)
+            .map(m -> createSyntheticField(m, sourceFilter))
             .filter(l -> l != SourceLoader.SyntheticFieldLoader.NOTHING)
             .toList();
+        if (fields.isEmpty()) {
+            return SourceLoader.SyntheticFieldLoader.NOTHING;
+        }
         return new SyntheticSourceFieldLoader(fields, isFragment);
     }
 
     public SourceLoader.SyntheticFieldLoader syntheticFieldLoader(Stream<Mapper> mappers) {
-        return syntheticFieldLoader(mappers, false);
+        return syntheticFieldLoader(null, mappers, false);
+    }
+
+    protected SourceLoader.SyntheticFieldLoader syntheticFieldLoader(SourceFilter sourceFilter) {
+        return syntheticFieldLoader(sourceFilter, mappers.values().stream(), false);
     }
 
     @Override
     public SourceLoader.SyntheticFieldLoader syntheticFieldLoader() {
-        return syntheticFieldLoader(mappers.values().stream());
+        return syntheticFieldLoader(null, mappers.values().stream(), false);
     }
 
     private class SyntheticSourceFieldLoader implements SourceLoader.SyntheticFieldLoader {

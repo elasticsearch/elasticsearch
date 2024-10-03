@@ -18,9 +18,11 @@ import org.elasticsearch.index.IndexMode;
 import org.elasticsearch.index.IndexSettings;
 import org.elasticsearch.index.analysis.IndexAnalyzers;
 import org.elasticsearch.index.mapper.MapperService.MergeReason;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.xcontent.FilterXContentParserWrapper;
 import org.elasticsearch.xcontent.FlatteningXContentParser;
 import org.elasticsearch.xcontent.XContentBuilder;
+import org.elasticsearch.xcontent.XContentLocation;
 import org.elasticsearch.xcontent.XContentParser;
 
 import java.io.IOException;
@@ -38,6 +40,8 @@ import java.util.Set;
  * the lucene data structures and mappings to be dynamically created as the outcome of parsing a document.
  */
 public abstract class DocumentParserContext {
+    public record XContentPatch(String fullPath, XContentLocation location, int id) {}
+
     /**
      * Wraps a given context while allowing to override some of its behaviour by re-implementing some of the non final methods
      */
@@ -131,6 +135,7 @@ public abstract class DocumentParserContext {
      * in this document and therefore is not present in mapping yet.
      */
     private final Set<String> copyToFields;
+    private final Map<XContentLocation, XContentPatch> sourcePatches;
 
     // Indicates if the source for this context has been marked to be recorded. Applies to synthetic source only.
     private boolean recordedSource;
@@ -155,6 +160,7 @@ public abstract class DocumentParserContext {
         Set<String> fieldsAppliedFromTemplates,
         Set<String> copyToFields,
         DynamicMapperSize dynamicMapperSize,
+        Map<XContentLocation, XContentPatch> sourcePatches,
         boolean recordedSource
     ) {
         this.mappingLookup = mappingLookup;
@@ -176,6 +182,7 @@ public abstract class DocumentParserContext {
         this.fieldsAppliedFromTemplates = fieldsAppliedFromTemplates;
         this.copyToFields = copyToFields;
         this.dynamicMappersSize = dynamicMapperSize;
+        this.sourcePatches = sourcePatches;
         this.recordedSource = recordedSource;
     }
 
@@ -200,6 +207,7 @@ public abstract class DocumentParserContext {
             in.fieldsAppliedFromTemplates,
             in.copyToFields,
             in.dynamicMappersSize,
+            in.sourcePatches,
             in.recordedSource
         );
     }
@@ -231,6 +239,7 @@ public abstract class DocumentParserContext {
             new HashSet<>(),
             new HashSet<>(mappingLookup.fieldTypesLookup().getCopyToDestinationFields()),
             new DynamicMapperSize(),
+            new HashMap<>(),
             false
         );
     }
@@ -385,6 +394,36 @@ public abstract class DocumentParserContext {
         if (fieldNamesFieldMapper != null) {
             fieldNamesFieldMapper.addFieldNames(this, field);
         }
+    }
+
+    /**
+     * Registers a patch for a specific field at a given location in the original source.
+     * The patch modifies the field value in the original `_source` by replacing it with a numerical ID,
+     * which is then stored in a document field accessible via {@link SearchSourceBuilder#equals(Object)}.
+     *
+     * The original field value must still be retrievable when the original `_source` is requested.
+     * This responsibility lies with the {@link FieldMapper}, ensuring that the patched field can provide
+     * the original value during retrieval.
+     *
+     * Note: Only one patch per field is permitted for each document.
+     *
+     * @param fieldMapper The {@link FieldMapper} responsible for applying the patch to the field.
+     * @param xContentLocation The {@link XContentLocation} representing the location of the field in the original source.
+     */
+    public void addSourceFieldPatch(FieldMapper fieldMapper, XContentLocation xContentLocation) {
+        var sourceFieldMapper = (SourceFieldMapper) getMetadataMapper(SourceFieldMapper.NAME);
+        if (sourceFieldMapper == null) {
+            return;
+        }
+        sourceFieldMapper.indexFieldPatch(doc(), fieldMapper, xContentLocation, getSourcePatches());
+    }
+
+    /**
+     * Returns all {@link XContentPatch} currently registered in this context,
+     * mapped by their {@link XContentLocation} in the original `_source`.
+     */
+    public Map<XContentLocation, XContentPatch> getSourcePatches() {
+        return sourcePatches;
     }
 
     public final Field version() {

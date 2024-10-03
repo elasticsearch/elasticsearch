@@ -10,16 +10,25 @@
 package org.elasticsearch.index.mapper;
 
 import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.LeafReaderContext;
 import org.elasticsearch.common.bytes.BytesReference;
+import org.elasticsearch.common.xcontent.XContentParserUtils;
+import org.elasticsearch.core.CheckedConsumer;
 import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.index.fieldvisitor.LeafStoredFieldLoader;
 import org.elasticsearch.search.lookup.Source;
+import org.elasticsearch.search.lookup.SourceFilter;
 import org.elasticsearch.xcontent.XContentBuilder;
+import org.elasticsearch.xcontent.XContentGenerator;
+import org.elasticsearch.xcontent.XContentLocation;
+import org.elasticsearch.xcontent.XContentParser;
 import org.elasticsearch.xcontent.json.JsonXContent;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +41,8 @@ import java.util.stream.Stream;
  * Loads source {@code _source} during a GET or {@code _search}.
  */
 public interface SourceLoader {
+    record Patch(String fullPath, int id, CheckedConsumer<XContentGenerator, IOException> apply) {}
+
     /**
      * Does this {@link SourceLoader} reorder field values?
      */
@@ -71,7 +82,15 @@ public interface SourceLoader {
     /**
      * Load {@code _source} from a stored field.
      */
-    SourceLoader FROM_STORED_SOURCE = new SourceLoader() {
+    SourceLoader FROM_STORED_SOURCE = new Stored(null);
+
+    class Stored implements SourceLoader {
+        final SourceFilter sourceFilter;
+
+        Stored(SourceFilter sourceFilter) {
+            this.sourceFilter = sourceFilter;
+        }
+
         @Override
         public boolean reordersFieldValues() {
             return false;
@@ -82,7 +101,8 @@ public interface SourceLoader {
             return new Leaf() {
                 @Override
                 public Source source(LeafStoredFieldLoader storedFields, int docId) throws IOException {
-                    return Source.fromBytes(storedFields.source());
+                    var res = Source.fromBytes(storedFields.source());
+                    return sourceFilter == null ? res : sourceFilter.filterBytes(res);
                 }
 
                 @Override
@@ -97,7 +117,7 @@ public interface SourceLoader {
         public Set<String> requiredStoredFields() {
             return Set.of();
         }
-    };
+    }
 
     /**
      * Reconstructs {@code _source} from doc values anf stored fields.
@@ -223,6 +243,94 @@ public interface SourceLoader {
     }
 
     /**
+     * Retrieves the {@code _source} from the stored fields and applies all {@link Patch} instances
+     * indexed via {@link DocumentParserContext#addSourceFieldPatch(FieldMapper, XContentLocation)} during indexing.
+     * Replaces all patch references in the retrieved {@code _source} with their actual values using the
+     * {@link PatchFieldLoader}.
+     */
+    class PatchSourceLoader implements SourceLoader {
+        final SourceFilter sourceFilter;
+        final PatchFieldLoader field;
+
+        public PatchSourceLoader(SourceFilter sourceFilter, PatchFieldLoader field) {
+            this.sourceFilter = sourceFilter;
+            this.field = field;
+        }
+
+        @Override
+        public boolean reordersFieldValues() {
+            return false;
+        }
+
+        @Override
+        public Set<String> requiredStoredFields() {
+            return FROM_STORED_SOURCE.requiredStoredFields();
+        }
+
+        @Override
+        public Leaf leaf(LeafReader reader, int[] docIdsInLeaf) throws IOException {
+            var sourceLeaf = FROM_STORED_SOURCE.leaf(reader, docIdsInLeaf);
+            var patchLeaf = field.leaf(reader.getContext());
+            return new Leaf() {
+                @Override
+                public Source source(LeafStoredFieldLoader storedFields, int docId) throws IOException {
+                    Source source = sourceLeaf.source(storedFields, docId);
+                    if (patchLeaf == null) {
+                        return sourceFilter == null ? source : sourceFilter.filterBytes(source);
+                    }
+                    List<Patch> patches = new ArrayList<>();
+                    patchLeaf.load(docId, patches);
+                    var finalPatches = verifyPatches(patches, docId);
+                    if (finalPatches.length == 0) {
+                        return sourceFilter == null ? source : sourceFilter.filterBytes(source);
+                    }
+                    var patchSource = Source.fromBytes(
+                        PatchSourceUtils.patchSource(
+                            sourceFilter == null ? source.internalSourceRef() : sourceFilter.filterBytes(source).internalSourceRef(),
+                            source.sourceContentType().xContent(),
+                            patches.stream().map(p -> p.fullPath()).collect(Collectors.toSet()),
+                            (fullPath, parser, destination) -> {
+                                XContentParserUtils.ensureExpectedToken(XContentParser.Token.VALUE_NUMBER, parser.currentToken(), parser);
+                                int id = parser.intValue();
+                                if (id > finalPatches.length) {
+                                    throw new IOException("Patch " + id + " not found for path " + fullPath);
+                                }
+                                var patch = finalPatches[id];
+                                if (patch == null || patch.fullPath.equals(fullPath) == false) {
+                                    throw new IOException("No patch found for path " + fullPath);
+                                }
+                                finalPatches[id] = null;
+                                patch.apply.accept(destination);
+                            }
+                        ),
+                        source.sourceContentType()
+                    );
+                    List<Patch> nonConsumed = Arrays.stream(finalPatches).filter(p -> p != null).collect(Collectors.toList());
+                    if (nonConsumed.size() > 0) {
+                        throw new IOException("Some patches were not processed: " + nonConsumed);
+                    }
+                    return patchSource;
+                }
+
+                @Override
+                public void write(LeafStoredFieldLoader storedFields, int docId, XContentBuilder b) throws IOException {
+                    throw new IllegalStateException("This operation is not allowed in the current context");
+                }
+            };
+        }
+
+        private static Patch[] verifyPatches(List<Patch> patches, int docId) throws IOException {
+            Patch[] ordered = patches.stream().sorted(Comparator.comparingInt(Patch::id)).toArray(Patch[]::new);
+            for (int i = 0; i < ordered.length; i++) {
+                if (ordered[i].id() != i) {
+                    throw new IOException("Registered patch " + i + " missing for document ID: " + docId);
+                }
+            }
+            return ordered;
+        }
+    }
+
+    /**
      * Load a field for {@link Synthetic}.
      * <p>
      * {@link SyntheticFieldLoader}s load values through objects vended
@@ -322,6 +430,10 @@ public interface SourceLoader {
          */
         void write(XContentBuilder b) throws IOException;
 
+        default CheckedConsumer<XContentGenerator, IOException> valueWriter() throws IOException {
+            throw new IllegalStateException("Should not be called");
+        }
+
         /**
          * Allows for identifying and tracking additional field values to include in the field source.
          * @param objectsWithIgnoredFields maps object names to lists of fields they contain with special source handling
@@ -368,6 +480,25 @@ public interface SourceLoader {
     }
 
     /**
+     * Per-field loader that retrieves {@link Patch} references and their original values, as indexed by
+     * {@link SourceFieldMapper#indexFieldPatch(LuceneDocument, FieldMapper, XContentLocation, Map)}.
+     */
+    interface PatchFieldLoader {
+        /**
+         * Returns a leaf loader if the provided context contains patches for the specified field;
+         * returns null otherwise.
+         */
+        PatchFieldLoader.Leaf leaf(LeafReaderContext context) throws IOException;
+
+        interface Leaf {
+            /**
+             * Loads all patches associated with the provided document into the specified {@code acc} list.
+             */
+            void load(int doc, List<Patch> acc) throws IOException;
+        }
+    }
+
+    /**
      * Synthetic field loader that uses only doc values to load synthetic source values.
      */
     abstract class DocValuesBasedSyntheticFieldLoader implements SyntheticFieldLoader {
@@ -380,6 +511,41 @@ public interface SourceLoader {
         public void reset() {
             // Not applicable to loaders using only doc values
             // since DocValuesLoader#advanceToDoc will reset the state anyway.
+        }
+    }
+
+    /**
+     * A patch field loader that utilizes a {@link SyntheticFieldLoader} to fetch the original patched value.
+     */
+    class SyntheticPatchFieldLoader implements PatchFieldLoader {
+        private final SyntheticFieldLoader syntheticField;
+
+        public SyntheticPatchFieldLoader(SyntheticFieldLoader syntheticFieldLoader) {
+            this.syntheticField = syntheticFieldLoader;
+        }
+
+        @Override
+        public Leaf leaf(LeafReaderContext context) throws IOException {
+            var patchLoader = context.reader().getNumericDocValues(SourceFieldMapper.getPatchFieldName(syntheticField.fieldName()));
+            if (patchLoader == null) {
+                return null;
+            }
+            var fieldLoader = syntheticField.docValuesLoader(context.reader(), null);
+            return (doc, acc) -> {
+                if (patchLoader.advanceExact(doc) == false) {
+                    return;
+                }
+                int patch = (int) patchLoader.longValue();
+                if (fieldLoader == null) {
+                    throw new IOException("Missing value for patch field [" + syntheticField.fieldName() + "] in doc [" + doc + "]");
+                }
+                fieldLoader.advanceToDoc(doc);
+                if (syntheticField.hasValue()) {
+                    acc.add(new Patch(syntheticField.fieldName(), patch, syntheticField.valueWriter()));
+                } else {
+                    throw new IOException("Missing value for patch field [" + syntheticField.fieldName() + "] in doc [" + doc + "]");
+                }
+            };
         }
     }
 }
