@@ -17,6 +17,7 @@ import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.core.Nullable;
 import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.rest.RestUtils;
+import org.elasticsearch.test.junit.annotations.TestIssueLogging;
 import org.elasticsearch.test.rest.ESRestTestCase;
 import org.elasticsearch.xcontent.ObjectPath;
 import org.elasticsearch.xcontent.XContentBuilder;
@@ -186,6 +187,7 @@ public class NodeShutdownIT extends ESRestTestCase {
     /**
      * A very basic smoke test to make sure the allocation decider is working.
      */
+    @TestIssueLogging(value = "org.elasticsearch.snapshots:DEBUG", issueUrl = "my-test")
     @SuppressWarnings("unchecked")
     public void testAllocationPreventedForRemoval() throws Exception {
         String nodeIdToShutdown = getRandomNodeId();
