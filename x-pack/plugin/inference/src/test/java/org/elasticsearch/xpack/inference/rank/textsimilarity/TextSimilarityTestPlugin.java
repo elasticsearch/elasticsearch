@@ -7,14 +7,10 @@
 
 package org.elasticsearch.xpack.inference.rank.textsimilarity;
 
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
-import org.elasticsearch.action.search.SearchPhaseController;
 import org.elasticsearch.action.support.ActionFilter;
 import org.elasticsearch.action.support.ActionFilterChain;
 import org.elasticsearch.client.internal.Client;
@@ -28,11 +24,9 @@ import org.elasticsearch.inference.TaskType;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.query.QuerySearchResult;
+import org.elasticsearch.search.profile.coordinator.SearchCoordinatorProfiler;
 import org.elasticsearch.search.rank.RankBuilder;
 import org.elasticsearch.search.rank.RankShardResult;
-import org.elasticsearch.search.rank.context.QueryPhaseRankCoordinatorContext;
-import org.elasticsearch.search.rank.context.QueryPhaseRankShardContext;
 import org.elasticsearch.search.rank.context.RankFeaturePhaseRankCoordinatorContext;
 import org.elasticsearch.search.rank.context.RankFeaturePhaseRankShardContext;
 import org.elasticsearch.search.rank.rerank.AbstractRerankerIT;
@@ -247,37 +241,6 @@ public class TextSimilarityTestPlugin extends Plugin implements ActionPlugin {
         }
 
         @Override
-        public QueryPhaseRankShardContext buildQueryPhaseShardContext(List<Query> queries, int from) {
-            if (this.throwingRankBuilderType == AbstractRerankerIT.ThrowingRankBuilderType.THROWING_QUERY_PHASE_SHARD_CONTEXT)
-                return new QueryPhaseRankShardContext(queries, rankWindowSize()) {
-                    @Override
-                    public RankShardResult combineQueryPhaseResults(List<TopDocs> rankResults) {
-                        throw new UnsupportedOperationException("qps - simulated failure");
-                    }
-                };
-            else {
-                return super.buildQueryPhaseShardContext(queries, from);
-            }
-        }
-
-        @Override
-        public QueryPhaseRankCoordinatorContext buildQueryPhaseCoordinatorContext(int size, int from) {
-            if (this.throwingRankBuilderType == AbstractRerankerIT.ThrowingRankBuilderType.THROWING_QUERY_PHASE_COORDINATOR_CONTEXT)
-                return new QueryPhaseRankCoordinatorContext(rankWindowSize()) {
-                    @Override
-                    public ScoreDoc[] rankQueryPhaseResults(
-                        List<QuerySearchResult> querySearchResults,
-                        SearchPhaseController.TopDocsStats topDocStats
-                    ) {
-                        throw new UnsupportedOperationException("qpc - simulated failure");
-                    }
-                };
-            else {
-                return super.buildQueryPhaseCoordinatorContext(size, from);
-            }
-        }
-
-        @Override
         public RankFeaturePhaseRankShardContext buildRankFeaturePhaseShardContext() {
             if (this.throwingRankBuilderType == AbstractRerankerIT.ThrowingRankBuilderType.THROWING_RANK_FEATURE_PHASE_SHARD_CONTEXT)
                 return new RankFeaturePhaseRankShardContext(field()) {
@@ -292,7 +255,12 @@ public class TextSimilarityTestPlugin extends Plugin implements ActionPlugin {
         }
 
         @Override
-        public RankFeaturePhaseRankCoordinatorContext buildRankFeaturePhaseCoordinatorContext(int size, int from, Client client) {
+        public RankFeaturePhaseRankCoordinatorContext buildRankFeaturePhaseCoordinatorContext(
+            int size,
+            int from,
+            Client client,
+            SearchCoordinatorProfiler profiler
+        ) {
             if (this.throwingRankBuilderType == AbstractRerankerIT.ThrowingRankBuilderType.THROWING_RANK_FEATURE_PHASE_COORDINATOR_CONTEXT)
                 return new TextSimilarityRankFeaturePhaseRankCoordinatorContext(
                     size,
@@ -301,7 +269,8 @@ public class TextSimilarityTestPlugin extends Plugin implements ActionPlugin {
                     client,
                     inferenceId,
                     inferenceText,
-                    minScore
+                    minScore,
+                    profiler
                 ) {
                     @Override
                     protected InferenceAction.Request generateRequest(List<String> docFeatures) {
@@ -318,7 +287,7 @@ public class TextSimilarityTestPlugin extends Plugin implements ActionPlugin {
                     }
                 };
             else {
-                return super.buildRankFeaturePhaseCoordinatorContext(size, from, client);
+                return super.buildRankFeaturePhaseCoordinatorContext(size, from, client, profiler);
             }
         }
 

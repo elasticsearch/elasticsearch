@@ -33,6 +33,7 @@ import org.elasticsearch.search.SearchPhaseResult;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.internal.ShardSearchContextId;
+import org.elasticsearch.search.profile.coordinator.SearchCoordinatorProfiler;
 import org.elasticsearch.search.query.QuerySearchResult;
 import org.elasticsearch.search.rank.RankBuilder;
 import org.elasticsearch.search.rank.RankDoc;
@@ -899,7 +900,8 @@ public class RankFeaturePhaseTests extends ESTestCase {
             ) {
                 List<ScoreDoc> docScores = new ArrayList<>();
                 for (QuerySearchResult phaseResults : rankSearchResults) {
-                    docScores.addAll(Arrays.asList(phaseResults.topDocs().topDocs.scoreDocs));
+                    assert phaseResults.getRankShardResult() != null;
+                    docScores.addAll(Arrays.asList(((RankFeatureShardResult) phaseResults.getRankShardResult()).rankFeatureDocs));
                 }
                 ScoreDoc[] sortedDocs = docScores.toArray(new ScoreDoc[0]);
                 // negating scores
@@ -1021,7 +1023,12 @@ public class RankFeaturePhaseTests extends ESTestCase {
             }
 
             @Override
-            public RankFeaturePhaseRankCoordinatorContext buildRankFeaturePhaseCoordinatorContext(int size, int from, Client client) {
+            public RankFeaturePhaseRankCoordinatorContext buildRankFeaturePhaseCoordinatorContext(
+                int size,
+                int from,
+                Client client,
+                SearchCoordinatorProfiler profiler
+            ) {
                 return rankFeaturePhaseRankCoordinatorContext;
             }
 
