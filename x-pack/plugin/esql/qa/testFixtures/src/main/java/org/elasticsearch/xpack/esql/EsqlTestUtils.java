@@ -26,6 +26,7 @@ import org.elasticsearch.compute.data.LongBlock;
 import org.elasticsearch.core.PathUtils;
 import org.elasticsearch.core.SuppressForbidden;
 import org.elasticsearch.core.Tuple;
+import org.elasticsearch.features.NodeFeature;
 import org.elasticsearch.geo.GeometryTestUtils;
 import org.elasticsearch.geo.ShapeTestUtils;
 import org.elasticsearch.index.IndexMode;
@@ -63,6 +64,7 @@ import org.elasticsearch.xpack.esql.plan.logical.EsRelation;
 import org.elasticsearch.xpack.esql.plan.logical.LogicalPlan;
 import org.elasticsearch.xpack.esql.plan.logical.local.LocalRelation;
 import org.elasticsearch.xpack.esql.plan.logical.local.LocalSupplier;
+import org.elasticsearch.xpack.esql.plugin.EsqlFeatures;
 import org.elasticsearch.xpack.esql.plugin.EsqlPlugin;
 import org.elasticsearch.xpack.esql.plugin.QueryPragmas;
 import org.elasticsearch.xpack.esql.session.Configuration;
@@ -98,6 +100,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.jar.JarInputStream;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 
 import static java.util.Collections.emptyList;
@@ -278,7 +281,8 @@ public final class EsqlTestUtils {
             query,
             false,
             TABLES,
-            System.nanoTime()
+            System.nanoTime(),
+            new EsqlFeatures().getFeatures().stream().map(NodeFeature::id).collect(Collectors.toSet())
         );
     }
 

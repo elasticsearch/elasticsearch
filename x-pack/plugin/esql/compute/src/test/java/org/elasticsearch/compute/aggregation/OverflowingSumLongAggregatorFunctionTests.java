@@ -20,15 +20,12 @@ import org.elasticsearch.compute.operator.SequenceLongBlockSourceOperator;
 import org.elasticsearch.compute.operator.SourceOperator;
 import org.elasticsearch.compute.operator.TestResultPageSinkOperator;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.LongStream;
 
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 
-public class SumLongAggregatorFunctionTests extends AggregatorFunctionTestCase {
+public class OverflowingSumLongAggregatorFunctionTests extends AggregatorFunctionTestCase {
     @Override
     protected SourceOperator simpleInput(BlockFactory blockFactory, int size) {
         long max = randomLongBetween(1, Long.MAX_VALUE / size);
@@ -37,12 +34,12 @@ public class SumLongAggregatorFunctionTests extends AggregatorFunctionTestCase {
 
     @Override
     protected AggregatorFunctionSupplier aggregatorFunction(List<Integer> inputChannels) {
-        return new SumLongAggregatorFunctionSupplier(-1, -2, "", inputChannels);
+        return new OverflowingSumLongAggregatorFunctionSupplier(inputChannels);
     }
 
     @Override
     protected String expectedDescriptionOfAggregator() {
-        return "sum of longs";
+        return "overflowing_sum of longs";
     }
 
     @Override
@@ -52,37 +49,23 @@ public class SumLongAggregatorFunctionTests extends AggregatorFunctionTestCase {
     }
 
     public void testOverflowFails() {
-        List<Page> results = new ArrayList<>();
         DriverContext driverContext = driverContext();
-        List<String> warnings = new ArrayList<>();
-        try (
-            Driver d = new Driver(
-                driverContext,
-                new SequenceLongBlockSourceOperator(driverContext.blockFactory(), LongStream.of(Long.MAX_VALUE - 1, 2)),
-                List.of(simple().get(driverContext)),
-                new TestResultPageSinkOperator(results::add),
-                () -> {
-                    warnings.addAll(threadContext.getResponseHeaders().getOrDefault("Warning", List.of()));
-                }
-            )
-        ) {
-            runDriver(d);
-        }
+
+        assertThrows(ArithmeticException.class, () -> {
+            try (
+                Driver d = new Driver(
+                    driverContext,
+                    new SequenceLongBlockSourceOperator(driverContext.blockFactory(), LongStream.of(Long.MAX_VALUE - 1, 2)),
+                    List.of(simple().get(driverContext)),
+                    new TestResultPageSinkOperator(r -> {}),
+                    () -> {}
+                )
+            ) {
+                runDriver(d);
+            }
+        });
 
         assertDriverContext(driverContext);
-
-        assertThat(results.size(), equalTo(1));
-        assertThat(results.get(0).getBlockCount(), equalTo(1));
-        assertThat(results.get(0).getPositionCount(), equalTo(1));
-        assertThat(results.get(0).getBlock(0).isNull(0), equalTo(true));
-
-        assertThat(
-            warnings,
-            contains(
-                containsString("\"Line -1:-2: evaluation of [] failed, treating result as null. Only first 20 failures recorded.\""),
-                containsString("\"Line -1:-2: java.lang.ArithmeticException: long overflow\"")
-            )
-        );
     }
 
     public void testRejectsDouble() {

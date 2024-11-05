@@ -5,7 +5,7 @@
  * 2.0.
  */
 
-package org.elasticsearch.xpack.esql.expression.function.scalar;
+package org.elasticsearch.xpack.esql.expression.function;
 
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.features.NodeFeature;
@@ -13,7 +13,6 @@ import org.elasticsearch.xpack.esql.EsqlTestUtils;
 import org.elasticsearch.xpack.esql.core.expression.Expression;
 import org.elasticsearch.xpack.esql.core.tree.Source;
 import org.elasticsearch.xpack.esql.core.util.StringUtils;
-import org.elasticsearch.xpack.esql.expression.function.AbstractScalarFunctionTestCase;
 import org.elasticsearch.xpack.esql.plugin.EsqlFeatures;
 import org.elasticsearch.xpack.esql.plugin.EsqlPlugin;
 import org.elasticsearch.xpack.esql.plugin.QueryPragmas;
@@ -25,7 +24,7 @@ import java.util.stream.Collectors;
 
 import static org.elasticsearch.xpack.esql.SerializationTestUtils.assertSerialization;
 
-public abstract class AbstractConfigurationFunctionTestCase extends AbstractScalarFunctionTestCase {
+public abstract class AbstractConfigurationAggregationTestCase extends AbstractAggregationTestCase {
     protected abstract Expression buildWithConfiguration(Source source, List<Expression> args, Configuration configuration);
 
     @Override

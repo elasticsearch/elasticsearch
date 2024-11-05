@@ -11,17 +11,18 @@ import org.elasticsearch.xpack.esql.expression.AbstractExpressionSerializationTe
 
 import java.io.IOException;
 
-public class SumSerializationTests extends AbstractExpressionSerializationTests<Sum> {
+public class WeightedAvgSerializationTests extends AbstractExpressionSerializationTests<WeightedAvg> {
     @Override
-    protected Sum createTestInstance() {
-        return new Sum(randomSource(), randomChild(), configuration());
+    protected WeightedAvg createTestInstance() {
+        return new WeightedAvg(randomSource(), randomChild(), randomChild(), configuration());
     }
 
     @Override
-    protected Sum mutateInstance(Sum instance) throws IOException {
-        return new Sum(
+    protected WeightedAvg mutateInstance(WeightedAvg instance) throws IOException {
+        return new WeightedAvg(
             instance.source(),
             randomValueOtherThan(instance.field(), AbstractExpressionSerializationTests::randomChild),
+            randomValueOtherThan(instance.weight(), AbstractExpressionSerializationTests::randomChild),
             instance.configuration()
         );
     }

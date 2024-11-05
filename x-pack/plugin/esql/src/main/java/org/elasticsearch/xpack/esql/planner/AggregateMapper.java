@@ -131,11 +131,16 @@ final class AggregateMapper {
     }
 
     private static List<NamedExpression> computeEntryForAgg(Expression aggregate, boolean grouping) {
+        if (aggregate instanceof ToIntermediateState intermediateStateGetter) {
+            var intermediateStates = intermediateStateGetter.intermediateState(grouping);
+            if (intermediateStates != null) {
+                return isToNE(intermediateStates).toList();
+            }
+        }
         var aggDef = aggDefOrNull(aggregate, grouping);
         if (aggDef != null) {
-            var is = getNonNull(aggDef);
-            var exp = isToNE(is).toList();
-            return exp;
+            var intermediateStates = getNonNull(aggDef);
+            return isToNE(intermediateStates).toList();
         }
         if (aggregate instanceof FieldAttribute || aggregate instanceof MetadataAttribute || aggregate instanceof ReferenceAttribute) {
             // This condition is a little pedantic, but do we expected other expressions here? if so, then add them
@@ -157,7 +162,7 @@ final class AggregateMapper {
     private static Stream<Tuple<Class<?>, Tuple<String, String>>> typeAndNames(Class<?> clazz) {
         List<String> types;
         List<String> extraConfigs = List.of("");
-        if (NumericAggregate.class.isAssignableFrom(clazz)) {
+        if (NumericAggregate.class.isAssignableFrom(clazz) || Sum.class.isAssignableFrom(clazz)) {
             types = NUMERIC;
         } else if (Max.class.isAssignableFrom(clazz) || Min.class.isAssignableFrom(clazz)) {
             types = List.of("Boolean", "Int", "Long", "Double", "Ip", "BytesRef");

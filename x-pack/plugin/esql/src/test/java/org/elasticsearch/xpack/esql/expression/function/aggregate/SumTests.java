@@ -10,12 +10,14 @@ package org.elasticsearch.xpack.esql.expression.function.aggregate;
 import com.carrotsearch.randomizedtesting.annotations.Name;
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 
+import org.elasticsearch.search.aggregations.metrics.CompensatedSum;
 import org.elasticsearch.xpack.esql.core.expression.Expression;
 import org.elasticsearch.xpack.esql.core.tree.Source;
 import org.elasticsearch.xpack.esql.core.type.DataType;
-import org.elasticsearch.xpack.esql.expression.function.AbstractAggregationTestCase;
+import org.elasticsearch.xpack.esql.expression.function.AbstractConfigurationAggregationTestCase;
 import org.elasticsearch.xpack.esql.expression.function.MultiRowTestCaseSupplier;
 import org.elasticsearch.xpack.esql.expression.function.TestCaseSupplier;
+import org.elasticsearch.xpack.esql.session.Configuration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +28,7 @@ import java.util.stream.Stream;
 import static org.elasticsearch.xpack.esql.core.type.DataType.UNSIGNED_LONG;
 import static org.hamcrest.Matchers.equalTo;
 
-public class SumTests extends AbstractAggregationTestCase {
+public class SumTests extends AbstractConfigurationAggregationTestCase {
     public SumTests(@Name("TestCase") Supplier<TestCaseSupplier.TestCase> testCaseSupplier) {
         this.testCase = testCaseSupplier.get();
     }
@@ -35,13 +37,12 @@ public class SumTests extends AbstractAggregationTestCase {
     public static Iterable<Object[]> parameters() {
         var suppliers = new ArrayList<TestCaseSupplier>();
 
-        Stream.of(MultiRowTestCaseSupplier.intCases(1, 1000, Integer.MIN_VALUE, Integer.MAX_VALUE, true)
-        // Longs currently throw on overflow.
-        // Restore after https://github.com/elastic/elasticsearch/issues/110437
-        // MultiRowTestCaseSupplier.longCases(1, 1000, Long.MIN_VALUE, Long.MAX_VALUE, true),
-        // Doubles currently return +/-Infinity on overflow.
-        // Restore after https://github.com/elastic/elasticsearch/issues/111026
-        // MultiRowTestCaseSupplier.doubleCases(1, 1000, -Double.MAX_VALUE, Double.MAX_VALUE, true)
+        Stream.of(
+            MultiRowTestCaseSupplier.intCases(1, 1000, Integer.MIN_VALUE, Integer.MAX_VALUE, true),
+            MultiRowTestCaseSupplier.longCases(1, 1000, Long.MIN_VALUE, Long.MAX_VALUE, true)
+            // Doubles currently return +/-Infinity on overflow.
+            // Restore after https://github.com/elastic/elasticsearch/issues/111026
+            // MultiRowTestCaseSupplier.doubleCases(1, 1000, -Double.MAX_VALUE, Double.MAX_VALUE, true)
         ).flatMap(List::stream).map(SumTests::makeSupplier).collect(Collectors.toCollection(() -> suppliers));
 
         suppliers.addAll(
@@ -81,52 +82,45 @@ public class SumTests extends AbstractAggregationTestCase {
     }
 
     @Override
-    protected Expression build(Source source, List<Expression> args) {
-        return new Sum(source, args.get(0));
+    protected Expression buildWithConfiguration(Source source, List<Expression> args, Configuration configuration) {
+        return new Sum(source, args.get(0), configuration);
     }
 
     private static TestCaseSupplier makeSupplier(TestCaseSupplier.TypedDataSupplier fieldSupplier) {
         return new TestCaseSupplier(List.of(fieldSupplier.type()), () -> {
             var fieldTypedData = fieldSupplier.get();
 
+            var expectedWarnings = new ArrayList<String>();
             Object expected;
 
             try {
                 expected = switch (fieldTypedData.type().widenSmallNumeric()) {
                     case INTEGER -> fieldTypedData.multiRowData()
                         .stream()
-                        .map(v -> (Integer) v)
-                        .collect(Collectors.summarizingInt(Integer::intValue))
-                        .getSum();
-                    case LONG -> fieldTypedData.multiRowData()
-                        .stream()
-                        .map(v -> (Long) v)
-                        .collect(Collectors.summarizingLong(Long::longValue))
-                        .getSum();
+                        .map(v -> ((Integer) v).longValue())
+                        .reduce(Math::addExact)
+                        .orElse(null);
+                    case LONG -> fieldTypedData.multiRowData().stream().map(v -> (Long) v).reduce(Math::addExact).orElse(null);
                     case DOUBLE -> {
-                        var value = fieldTypedData.multiRowData()
-                            .stream()
-                            .map(v -> (Double) v)
-                            .collect(Collectors.summarizingDouble(Double::doubleValue))
-                            .getSum();
+                        var sum = new CompensatedSum();
+                        fieldTypedData.multiRowData().stream().map(v -> (Double) v).forEach(sum::add);
 
-                        if (Double.isInfinite(value) || Double.isNaN(value)) {
-                            yield null;
-                        }
-
-                        yield value;
+                        yield Double.isFinite(sum.value()) ? sum.value() : null;
                     }
                     default -> throw new IllegalStateException("Unexpected value: " + fieldTypedData.type());
                 };
-            } catch (Exception e) {
+            } catch (ArithmeticException e) {
                 expected = null;
+                expectedWarnings.add("Line -1:-1: evaluation of [] failed, treating result as null. Only first 20 failures recorded.");
+                expectedWarnings.add("Line -1:-1: java.lang.ArithmeticException: long overflow");
             }
 
             var dataType = fieldTypedData.type().isWholeNumber() == false || fieldTypedData.type() == UNSIGNED_LONG
                 ? DataType.DOUBLE
                 : DataType.LONG;
 
-            return new TestCaseSupplier.TestCase(List.of(fieldTypedData), "Sum[field=Attribute[channel=0]]", dataType, equalTo(expected));
+            return new TestCaseSupplier.TestCase(List.of(fieldTypedData), "Sum[field=Attribute[channel=0]]", dataType, equalTo(expected))
+                .withWarnings(expectedWarnings);
         });
     }
 }
