@@ -208,7 +208,7 @@ public class TextExpansionQueryBuilder extends AbstractQueryBuilder<TextExpansio
     }
 
     private QueryBuilder weightedTokensToQuery(String fieldName, TextExpansionResults textExpansionResults) {
-        if (tokenPruningConfig != null) {
+        if (tokenPruningConfig != null || textExpansionResults.hasWeightedTokens()) {
             WeightedTokensQueryBuilder weightedTokensQueryBuilder = new WeightedTokensQueryBuilder(
                 fieldName,
                 textExpansionResults.getWeightedTokens(),
