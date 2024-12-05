@@ -28,6 +28,7 @@ import java.security.CodeSource;
 import java.security.PrivilegedAction;
 import java.security.SecureClassLoader;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,43 +59,74 @@ public class UberModuleClassLoader extends SecureClassLoader implements AutoClos
     private final ModuleLayer.Controller moduleController;
     private final Set<String> packageNames;
 
-    private static Map<String, Set<String>> getModuleToServiceMap(ModuleLayer moduleLayer) {
-        Set<String> unqualifiedExports = moduleLayer.modules()
+    private static Set<String> unqualifiedExportsForLayer(ModuleLayer layer) {
+        return layer.modules()
             .stream()
             .flatMap(module -> module.getDescriptor().exports().stream())
             .filter(Predicate.not(ModuleDescriptor.Exports::isQualified))
             .map(ModuleDescriptor.Exports::source)
             .collect(Collectors.toSet());
-        return moduleLayer.modules()
+    }
+
+    private static Set<ModuleDescriptor> readableModulesForLayer(ModuleLayer layer) {
+        return layer.modules()
             .stream()
             .map(Module::getDescriptor)
-            .filter(ModuleSupport::hasAtLeastOneUnqualifiedExport)
+            .filter(md -> ModuleSupport.hasAtLeastOneUnqualifiedExport(md) || md.isOpen() || md.isAutomatic())
+            .collect(Collectors.toSet());
+    }
+
+    private static Map<String, Set<String>> getModuleToServiceMap(List<ModuleLayer> moduleLayers) {
+        Set<String> allUnqualifiedExports = new HashSet<>();
+        Set<ModuleDescriptor> allReadableModules = new HashSet<>();
+        collectLayersInfo(moduleLayers, allUnqualifiedExports, allReadableModules, true);
+
+        return allReadableModules.stream()
             .collect(
                 Collectors.toMap(
                     ModuleDescriptor::name,
                     md -> md.provides()
                         .stream()
                         .map(ModuleDescriptor.Provides::service)
-                        .filter(name -> unqualifiedExports.contains(packageName(name)))
+                        .filter(name -> allUnqualifiedExports.contains(packageName(name)))
                         .collect(Collectors.toSet())
                 )
             );
     }
 
+    private static void collectLayersInfo(
+        List<ModuleLayer> moduleLayers,
+        Set<String> allUnqualifiedExports,
+        Set<ModuleDescriptor> allReadableModules,
+        boolean allowBootLayer
+    ) {
+        if (moduleLayers == null || moduleLayers.isEmpty()) {
+            return;
+        }
+        for (var layer : moduleLayers) {
+            // ModuleLayer.boot() contains all ES libs too, so we want it to be an explicit parent
+            if (allowBootLayer || layer != ModuleLayer.boot()) {
+                allUnqualifiedExports.addAll(unqualifiedExportsForLayer(layer));
+                allReadableModules.addAll(readableModulesForLayer(layer));
+                collectLayersInfo(layer.parents(), allUnqualifiedExports, allReadableModules, false);
+            }
+        }
+    }
+
     static UberModuleClassLoader getInstance(ClassLoader parent, String moduleName, Set<URL> jarUrls) {
-        return getInstance(parent, ModuleLayer.boot(), moduleName, jarUrls, Set.of());
+        return getInstance(parent, List.of(ModuleLayer.boot()), moduleName, jarUrls, Set.of());
     }
 
     @SuppressWarnings("removal")
     static UberModuleClassLoader getInstance(
         ClassLoader parent,
-        ModuleLayer parentLayer,
+        List<ModuleLayer> parentLayers,
         String moduleName,
         Set<URL> jarUrls,
         Set<String> moduleDenyList
     ) {
         Path[] jarPaths = jarUrls.stream().map(UberModuleClassLoader::urlToPathUnchecked).toArray(Path[]::new);
-        var parentLayerModuleToServiceMap = getModuleToServiceMap(parentLayer);
+        var parentLayerModuleToServiceMap = getModuleToServiceMap(parentLayers);
         Set<String> requires = parentLayerModuleToServiceMap.keySet()
             .stream()
             .filter(Predicate.not(moduleDenyList::contains))
@@ -110,10 +142,15 @@ public class UberModuleClassLoader extends SecureClassLoader implements AutoClos
             jarPaths,
             requires,
             uses,
-            s -> isPackageInLayers(s, parentLayer)
+            s -> isPackageInLayers(s, parentLayers)
         );
         // TODO: check that denied modules are not brought as transitive dependencies (or switch to allow-list?)
-        Configuration cf = parentLayer.configuration().resolve(finder, ModuleFinder.of(), Set.of(moduleName));
+        Configuration cf = Configuration.resolve(
+            finder,
+            parentLayers.stream().map(ModuleLayer::configuration).toList(),
+            ModuleFinder.of(),
+            Set.of(moduleName)
+        );
 
         Set<String> packageNames = finder.find(moduleName).map(ModuleReference::descriptor).map(ModuleDescriptor::packages).orElseThrow();
 
@@ -122,20 +159,25 @@ public class UberModuleClassLoader extends SecureClassLoader implements AutoClos
             moduleName,
             jarUrls.toArray(new URL[0]),
             cf,
-            parentLayer,
+            parentLayers,
             packageNames
         );
         return AccessController.doPrivileged(pa);
     }
 
-    private static boolean isPackageInLayers(String packageName, ModuleLayer moduleLayer) {
-        if (moduleLayer.modules().stream().map(Module::getPackages).anyMatch(p -> p.contains(packageName))) {
+    private static boolean isPackageInLayers(String packageName, List<ModuleLayer> moduleLayers) {
+        if (moduleLayers.stream().flatMap(x -> x.modules().stream()).map(Module::getPackages).anyMatch(p -> p.contains(packageName))) {
             return true;
         }
-        if (moduleLayer.parents().equals(List.of(ModuleLayer.empty()))) {
-            return false;
+        for (var moduleLayer : moduleLayers) {
+            if (moduleLayer.parents().equals(List.of(ModuleLayer.empty()))) {
+                continue;
+            }
+            if (moduleLayer.parents().stream().anyMatch(ml -> isPackageInLayers(packageName, List.of(ml)))) {
+                return true;
+            }
         }
-        return moduleLayer.parents().stream().anyMatch(ml -> isPackageInLayers(packageName, ml));
+        return false;
     }
 
     /**
@@ -146,7 +188,7 @@ public class UberModuleClassLoader extends SecureClassLoader implements AutoClos
         String moduleName,
         URL[] jarURLs,
         Configuration cf,
-        ModuleLayer mparent,
+        List<ModuleLayer> mparent,
         Set<String> packageNames
     ) {
         super(parent);
@@ -157,7 +199,7 @@ public class UberModuleClassLoader extends SecureClassLoader implements AutoClos
         // Defining a module layer tells the Java virtual machine about the
         // classes that may be loaded from the module, and is what makes the
         // Class::getModule call return the name of our ubermodule.
-        this.moduleController = ModuleLayer.defineModules(cf, List.of(mparent), s -> this);
+        this.moduleController = ModuleLayer.defineModules(cf, mparent, s -> this);
         this.module = this.moduleController.layer().findModule(moduleName).orElseThrow();
 
         this.packageNames = packageNames;

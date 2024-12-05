@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.elasticsearch.common.io.FileSystemUtils.isAccessibleDirectory;
@@ -100,8 +101,8 @@ public class PluginsLoader {
             Objects.requireNonNull(loader);
         }
 
-        public static LayerAndLoader ofLoader(ClassLoader loader) {
-            return new LayerAndLoader(ModuleLayer.boot(), loader);
+        public static LayerAndLoader ofLoader(UberModuleClassLoader loader) {
+            return new LayerAndLoader(loader.getLayer(), loader);
         }
     }
 
@@ -273,7 +274,7 @@ public class PluginsLoader {
             );
         } else {
             logger.debug(() -> "Loading bundle: " + plugin.getName() + ", creating spi, non-modular");
-            return LayerAndLoader.ofLoader(URLClassLoader.newInstance(bundle.spiUrls.toArray(new URL[0]), parentLoader));
+            return new LayerAndLoader(ModuleLayer.boot(), URLClassLoader.newInstance(bundle.spiUrls.toArray(new URL[0]), parentLoader));
         }
     }
 
@@ -286,26 +287,39 @@ public class PluginsLoader {
     ) {
         final PluginDescriptor plugin = bundle.plugin;
         if (plugin.getModuleName().isPresent()) {
-            logger.debug(() -> "Loading bundle: " + plugin.getName() + ", modular");
+            logger.info(() -> "Loading bundle: " + plugin.getName() + ", modular");
             var parentLayers = Stream.concat(
                 Stream.ofNullable(spiLayerAndLoader != null ? spiLayerAndLoader.layer() : null),
                 extendedPlugins.stream().map(LoadedPluginLayer::spiModuleLayer)
             ).toList();
             return createPluginModuleLayer(bundle, pluginParentLoader, parentLayers, qualifiedExports);
         } else if (plugin.isStable()) {
-            logger.debug(() -> "Loading bundle: " + plugin.getName() + ", non-modular as synthetic module");
+            logger.info(() -> "Loading bundle: " + plugin.getName() + ", non-modular as synthetic module");
             return LayerAndLoader.ofLoader(
                 UberModuleClassLoader.getInstance(
                     pluginParentLoader,
-                    ModuleLayer.boot(),
+                    List.of(ModuleLayer.boot()),
                     "synthetic." + toModuleName(plugin.getName()),
                     bundle.allUrls,
                     Set.of("org.elasticsearch.server") // TODO: instead of denying server, allow only jvm + stable API modules
                 )
             );
         } else {
-            logger.debug(() -> "Loading bundle: " + plugin.getName() + ", non-modular");
-            return LayerAndLoader.ofLoader(URLClassLoader.newInstance(bundle.urls.toArray(URL[]::new), pluginParentLoader));
+            var syntheticName = "synthetic." + toModuleName2(plugin.getName());
+            logger.info(() -> "Loading bundle: " + plugin.getName() + ", non-modular, as synthetic module " + syntheticName);
+            var parentLayers = Stream.concat(
+                Stream.ofNullable(spiLayerAndLoader != null ? spiLayerAndLoader.layer() : null),
+                Stream.concat(extendedPlugins.stream().map(LoadedPluginLayer::spiModuleLayer), Stream.of(ModuleLayer.boot()))
+            ).toList();
+            var parentModuleNames = parentLayers.stream()
+                .flatMap(l -> l.modules().stream())
+                .map(Module::getName)
+                .distinct()
+                .collect(Collectors.joining(";"));
+            logger.info("Parent modules for {}: {}", syntheticName, parentModuleNames);
+            return LayerAndLoader.ofLoader(
+                UberModuleClassLoader.getInstance(pluginParentLoader, parentLayers, syntheticName, bundle.allUrls, Set.of())
+            );
         }
     }
 
@@ -343,7 +357,7 @@ public class PluginsLoader {
         );
     }
 
-    static LayerAndLoader createModuleLayer(
+    private static LayerAndLoader createModuleLayer(
         String className,
         String moduleName,
         Path[] paths,
@@ -382,6 +396,16 @@ public class PluginsLoader {
     // package-visible for testing
     static String toModuleName(String name) {
         String result = name.replaceAll("\\W+", ".") // replace non-alphanumeric character strings with dots
+            .replaceAll("(^[^A-Za-z_]*)", "") // trim non-alpha or underscore characters from start
+            .replaceAll("\\.$", "") // trim trailing dot
+            .toLowerCase(Locale.getDefault());
+        assert ModuleSupport.isPackageName(result);
+        return result;
+    }
+
+    static String toModuleName2(String name) {
+        String result = name.replace('-', '_')
+            .replaceAll("\\W+", ".") // replace non-alphanumeric character strings with dots
             .replaceAll("(^[^A-Za-z_]*)", "") // trim non-alpha or underscore characters from start
             .replaceAll("\\.$", "") // trim trailing dot
             .toLowerCase(Locale.getDefault());
