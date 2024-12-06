@@ -60,6 +60,7 @@ import org.elasticsearch.xpack.inference.action.TransportInferenceUsageAction;
 import org.elasticsearch.xpack.inference.action.TransportPutInferenceModelAction;
 import org.elasticsearch.xpack.inference.action.TransportUpdateInferenceModelAction;
 import org.elasticsearch.xpack.inference.action.filter.ShardBulkInferenceActionFilter;
+import org.elasticsearch.xpack.inference.common.ServiceToNodeGroupingClusterStateListener;
 import org.elasticsearch.xpack.inference.common.Truncator;
 import org.elasticsearch.xpack.inference.external.amazonbedrock.AmazonBedrockRequestSender;
 import org.elasticsearch.xpack.inference.external.http.HttpClientManager;
@@ -149,6 +150,7 @@ public class InferencePlugin extends Plugin implements ActionPlugin, ExtensibleP
     private final SetOnce<ElasticInferenceServiceComponents> elasticInferenceServiceComponents = new SetOnce<>();
     private final SetOnce<InferenceServiceRegistry> inferenceServiceRegistry = new SetOnce<>();
     private final SetOnce<ShardBulkInferenceActionFilter> shardBulkInferenceActionFilter = new SetOnce<>();
+    private final SetOnce<ServiceToNodeGroupingClusterStateListener> serviceToNodeGroupingClusterStateListener = new SetOnce<>();
     private List<InferenceServiceExtension> inferenceServiceExtensions;
 
     public InferencePlugin(Settings settings) {
@@ -195,6 +197,7 @@ public class InferencePlugin extends Plugin implements ActionPlugin, ExtensibleP
 
     @Override
     public Collection<?> createComponents(PluginServices services) {
+        var clusterService = services.clusterService();
         var throttlerManager = new ThrottlerManager(settings, services.threadPool(), services.clusterService());
         var truncator = new Truncator(settings, services.clusterService());
         serviceComponents.set(new ServiceComponents(services.threadPool(), throttlerManager, settings, truncator));
@@ -249,7 +252,7 @@ public class InferencePlugin extends Plugin implements ActionPlugin, ExtensibleP
         var factoryContext = new InferenceServiceExtension.InferenceServiceFactoryContext(
             services.client(),
             services.threadPool(),
-            services.clusterService(),
+            clusterService,
             settings
         );
 
@@ -268,7 +271,11 @@ public class InferencePlugin extends Plugin implements ActionPlugin, ExtensibleP
         var meterRegistry = services.telemetryProvider().getMeterRegistry();
         var stats = new PluginComponentBinding<>(InferenceStats.class, InferenceStats.create(meterRegistry));
 
-        return List.of(modelRegistry, registry, httpClientManager, stats);
+        serviceToNodeGroupingClusterStateListener.set(
+            new ServiceToNodeGroupingClusterStateListener(clusterService, inferenceServiceRegistry.get())
+        );
+
+        return List.of(modelRegistry, registry, httpClientManager, stats, serviceToNodeGroupingClusterStateListener.get());
     }
 
     @Override
