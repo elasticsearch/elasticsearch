@@ -14,15 +14,18 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.DocWriteResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.cluster.metadata.InferenceFieldMetadata;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.common.xcontent.XContentHelper;
+import org.elasticsearch.common.xcontent.support.XContentMapValues;
 import org.elasticsearch.core.Nullable;
 import org.elasticsearch.core.Tuple;
 import org.elasticsearch.index.VersionType;
 import org.elasticsearch.index.engine.DocumentMissingException;
 import org.elasticsearch.index.engine.DocumentSourceMissingException;
 import org.elasticsearch.index.get.GetResult;
+import org.elasticsearch.index.mapper.InferenceFieldMapperUtil;
 import org.elasticsearch.index.mapper.MapperService;
 import org.elasticsearch.index.mapper.MappingLookup;
 import org.elasticsearch.index.mapper.RoutingFieldMapper;
@@ -38,7 +41,11 @@ import org.elasticsearch.search.lookup.Source;
 import org.elasticsearch.xcontent.XContentType;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.LongSupplier;
 
@@ -183,12 +190,27 @@ public class UpdateHelper {
         final Tuple<XContentType, Map<String, Object>> sourceAndContent = XContentHelper.convertToMap(getResult.internalSourceRef(), true);
         final XContentType updateSourceContentType = sourceAndContent.v1();
         final Map<String, Object> updatedSourceAsMap = sourceAndContent.v2();
+        final Map<String, Object> changes = currentRequest.sourceAsMap(XContentParserDecorator.NOOP);
+        final MappingLookup mappingLookup = indexShard.mapperService().mappingLookup();
 
-        final boolean noop = XContentHelper.update(
-            updatedSourceAsMap,
-            currentRequest.sourceAsMap(XContentParserDecorator.NOOP),
-            detectNoop
-        ) == false;
+        // Get and remove inference field updates from the changes map so that we can apply these updates in a normalized way.
+        // Otherwise, XContentHelper.update may merge the changes in a way that results in multiple independent map entries for an inference
+        // field, which breaks downstream source transformation.
+        final Map<String, Object> inferenceFieldUpdates = new HashMap<>();
+        final Map<String, Object> filteredChanges = getAndRemoveInferenceFieldUpdates(
+            changes,
+            mappingLookup.inferenceFields().values(),
+            inferenceFieldUpdates
+        );
+        boolean noop = XContentHelper.update(updatedSourceAsMap, filteredChanges, detectNoop) == false;
+
+        if (inferenceFieldUpdates.isEmpty() == false) {
+            // Apply inference field updates in a normalized way
+            noop = false;
+            for (var entry : inferenceFieldUpdates.entrySet()) {
+                InferenceFieldMapperUtil.insertValue(entry.getKey(), updatedSourceAsMap, entry.getValue());
+            }
+        }
 
         // We can only actually turn the update into a noop if detectNoop is true to preserve backwards compatibility and to handle cases
         // where users repopulating multi-fields or adding synonyms, etc.
@@ -205,7 +227,7 @@ public class UpdateHelper {
                 extractGetResult(
                     request,
                     request.index(),
-                    indexShard.mapperService().mappingLookup(),
+                    mappingLookup,
                     getResult.getSeqNo(),
                     getResult.getPrimaryTerm(),
                     getResult.getVersion(),
@@ -226,6 +248,41 @@ public class UpdateHelper {
                 .timeout(request.timeout())
                 .setRefreshPolicy(request.getRefreshPolicy());
             return new Result(finalIndexRequest, DocWriteResponse.Result.UPDATED, updatedSourceAsMap, updateSourceContentType);
+        }
+    }
+
+    private static Map<String, Object> getAndRemoveInferenceFieldUpdates(
+        Map<String, Object> changes,
+        Collection<InferenceFieldMetadata> inferenceFields,
+        Map<String, Object> inferenceFieldUpdates
+    ) {
+        Map<String, Object> filteredChanges = changes;
+        for (InferenceFieldMetadata inferenceFieldMetadata : inferenceFields) {
+            String inferenceFieldName = inferenceFieldMetadata.getName();
+            Object inferenceFieldValue = XContentMapValues.extractValue(inferenceFieldName, changes, new ExplicitNullValue());
+            if (inferenceFieldValue != null) {
+                inferenceFieldUpdates.put(inferenceFieldName, replaceExplicitNullValues(inferenceFieldValue));
+            }
+        }
+
+        if (inferenceFieldUpdates.isEmpty() == false) {
+            filteredChanges = XContentMapValues.filter(changes, null, inferenceFieldUpdates.keySet().toArray(new String[0]));
+        }
+
+        return filteredChanges;
+    }
+
+    private static class ExplicitNullValue {}
+
+    private static Object replaceExplicitNullValues(Object inferenceFieldValue) {
+        if (inferenceFieldValue instanceof ExplicitNullValue) {
+            return null;
+        } else if (inferenceFieldValue instanceof List<?> listValue) {
+            List<Object> processedList = new ArrayList<>(listValue.size());
+            listValue.forEach(v -> processedList.add(replaceExplicitNullValues(v)));
+            return processedList;
+        } else {
+            return inferenceFieldValue;
         }
     }
 
