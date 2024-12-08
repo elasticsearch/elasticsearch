@@ -48,12 +48,16 @@ public class DataStreamsStatsResponseTests extends AbstractWireSerializingTestCa
             long storeSize = randomLongBetween(250, 1000000000);
             totalStoreSize += storeSize;
             long maximumTimestamp = randomRecentTimestamp();
+            Double writeLoadForecastPerShard = randomDouble();
+            Double writeLoadForecastPerIndex = writeLoadForecastPerShard * randomInt();
             dataStreamStats.add(
                 new DataStreamsStatsAction.DataStreamStats(
                     dataStreamName,
                     backingIndices,
                     ByteSizeValue.ofBytes(storeSize),
-                    maximumTimestamp
+                    maximumTimestamp,
+                    writeLoadForecastPerShard,
+                    writeLoadForecastPerIndex
                 )
             );
         }

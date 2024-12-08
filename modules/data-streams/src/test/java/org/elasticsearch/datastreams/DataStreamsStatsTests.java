@@ -22,10 +22,17 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.cluster.metadata.ComposableIndexTemplate;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
+import org.elasticsearch.cluster.metadata.Metadata;
 import org.elasticsearch.cluster.metadata.Template;
+import org.elasticsearch.cluster.routing.allocation.WriteLoadForecaster;
 import org.elasticsearch.common.compress.CompressedXContent;
+import org.elasticsearch.common.settings.ClusterSettings;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.plugins.ClusterPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.test.ESSingleNodeTestCase;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.xcontent.json.JsonXContent;
 import org.junit.After;
 
@@ -35,17 +42,20 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.Math.max;
+import static org.elasticsearch.datastreams.DataStreamsStatsTests.StaticWriteLoadForecasterPlugin.WRITE_LOAD_FORECAST_PER_SHARD;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertAcked;
+import static org.hamcrest.Matchers.is;
 
 public class DataStreamsStatsTests extends ESSingleNodeTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {
-        return List.of(DataStreamsPlugin.class);
+        return List.of(DataStreamsPlugin.class, StaticWriteLoadForecasterPlugin.class);
     }
 
     private final Set<String> createdDataStreams = new HashSet<>();
@@ -87,6 +97,8 @@ public class DataStreamsStatsTests extends ESSingleNodeTestCase {
         assertEquals(0L, stats.getDataStreams()[0].getMaximumTimestamp());
         assertNotEquals(0L, stats.getDataStreams()[0].getStoreSize().getBytes());
         assertEquals(stats.getTotalStoreSize().getBytes(), stats.getDataStreams()[0].getStoreSize().getBytes());
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerShard()));
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerIndex()));
     }
 
     public void testStatsExistingDataStream() throws Exception {
@@ -105,6 +117,8 @@ public class DataStreamsStatsTests extends ESSingleNodeTestCase {
         assertEquals(timestamp, stats.getDataStreams()[0].getMaximumTimestamp());
         assertNotEquals(0L, stats.getDataStreams()[0].getStoreSize().getBytes());
         assertEquals(stats.getTotalStoreSize().getBytes(), stats.getDataStreams()[0].getStoreSize().getBytes());
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerShard()));
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerIndex()));
     }
 
     public void testStatsExistingHiddenDataStream() throws Exception {
@@ -123,6 +137,8 @@ public class DataStreamsStatsTests extends ESSingleNodeTestCase {
         assertEquals(timestamp, stats.getDataStreams()[0].getMaximumTimestamp());
         assertNotEquals(0L, stats.getDataStreams()[0].getStoreSize().getBytes());
         assertEquals(stats.getTotalStoreSize().getBytes(), stats.getDataStreams()[0].getStoreSize().getBytes());
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerShard()));
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerIndex()));
     }
 
     public void testStatsClosedBackingIndexDataStream() throws Exception {
@@ -150,6 +166,8 @@ public class DataStreamsStatsTests extends ESSingleNodeTestCase {
         assertEquals(0L, stats.getDataStreams()[0].getMaximumTimestamp());
         assertNotEquals(0L, stats.getDataStreams()[0].getStoreSize().getBytes());
         assertEquals(stats.getTotalStoreSize().getBytes(), stats.getDataStreams()[0].getStoreSize().getBytes());
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerShard()));
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerIndex()));
 
         // Call stats again after writing a new event into the write index
         long timestamp = createDocument(dataStreamName);
@@ -166,6 +184,8 @@ public class DataStreamsStatsTests extends ESSingleNodeTestCase {
         assertEquals(timestamp, stats.getDataStreams()[0].getMaximumTimestamp());
         assertNotEquals(0L, stats.getDataStreams()[0].getStoreSize().getBytes());
         assertEquals(stats.getTotalStoreSize().getBytes(), stats.getDataStreams()[0].getStoreSize().getBytes());
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerShard()));
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerIndex()));
     }
 
     public void testStatsRolledDataStream() throws Exception {
@@ -186,6 +206,8 @@ public class DataStreamsStatsTests extends ESSingleNodeTestCase {
         assertEquals(timestamp, stats.getDataStreams()[0].getMaximumTimestamp());
         assertNotEquals(0L, stats.getDataStreams()[0].getStoreSize().getBytes());
         assertEquals(stats.getTotalStoreSize().getBytes(), stats.getDataStreams()[0].getStoreSize().getBytes());
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerShard()));
+        assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerIndex()));
     }
 
     public void testStatsMultipleDataStreams() throws Exception {
@@ -217,16 +239,47 @@ public class DataStreamsStatsTests extends ESSingleNodeTestCase {
             assertEquals(1, dataStreamStats.getBackingIndices());
             assertEquals(expectedMaxTS.longValue(), dataStreamStats.getMaximumTimestamp());
             assertNotEquals(0L, dataStreamStats.getStoreSize().getBytes());
+            assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerShard()));
+            assertThat(null, is(stats.getDataStreams()[0].getWriteLoadForecastPerIndex()));
         }
     }
 
-    private String createDataStream() throws Exception {
-        return createDataStream(false);
+    public void testWriteLoadStatsExistingDataStream() throws Exception {
+        int shards = 3;
+        String dataStreamName = createDataStream("write-load-test-", 3);
+        long timestamp = createDocument(dataStreamName);
+
+        DataStreamsStatsAction.Response stats = getDataStreamsStats();
+        assertEquals(shards, stats.getSuccessfulShards());
+        assertEquals(0, stats.getFailedShards());
+        assertEquals(1, stats.getDataStreamCount());
+        assertEquals(1, stats.getBackingIndices());
+        assertNotEquals(0L, stats.getTotalStoreSize().getBytes());
+        assertEquals(1, stats.getDataStreams().length);
+        assertEquals(dataStreamName, stats.getDataStreams()[0].getDataStream());
+        assertEquals(1, stats.getDataStreams()[0].getBackingIndices());
+        assertEquals(timestamp, stats.getDataStreams()[0].getMaximumTimestamp());
+        assertNotEquals(0L, stats.getDataStreams()[0].getStoreSize().getBytes());
+        assertEquals(stats.getTotalStoreSize().getBytes(), stats.getDataStreams()[0].getStoreSize().getBytes());
+        assertThat(WRITE_LOAD_FORECAST_PER_SHARD, is(stats.getDataStreams()[0].getWriteLoadForecastPerShard()));
+        assertThat(WRITE_LOAD_FORECAST_PER_SHARD * shards, is(stats.getDataStreams()[0].getWriteLoadForecastPerIndex()));
     }
 
+    private String createDataStream() throws Exception {
+        return createDataStream(false, "", 1);
+    }
+
+    private String createDataStream(String namePrefix, int shards) throws Exception {
+        return createDataStream(false, namePrefix, shards);
+    }
     private String createDataStream(boolean hidden) throws Exception {
-        String dataStreamName = randomAlphaOfLength(10).toLowerCase(Locale.getDefault());
-        Template idxTemplate = new Template(null, new CompressedXContent("""
+        return createDataStream(hidden, "", 1);
+    }
+
+    private String createDataStream(boolean hidden, String namePrefix, int shards) throws Exception {
+        String dataStreamName = namePrefix + randomAlphaOfLength(10).toLowerCase(Locale.getDefault());
+        Template idxTemplate = new Template(Settings.builder().put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, shards).build(),
+            new CompressedXContent("""
             {"properties":{"@timestamp":{"type":"date"},"data":{"type":"keyword"}}}
             """), null);
         ComposableIndexTemplate template = ComposableIndexTemplate.builder()
@@ -298,5 +351,36 @@ public class DataStreamsStatsTests extends ESSingleNodeTestCase {
                 new TransportDeleteComposableIndexTemplateAction.Request(dataStreamName + "_template")
             )
         );
+    }
+
+    /**
+     * Plugin providing {@link WriteLoadForecaster} implementation for Test purposes.
+     * If the given index's name contains "write-load-test" the forecaster returns 0.25, else {@link OptionalDouble#empty()}
+     */
+    public static class StaticWriteLoadForecasterPlugin extends Plugin implements ClusterPlugin {
+
+        public static final double WRITE_LOAD_FORECAST_PER_SHARD = 0.25;
+
+        @Override
+        public Collection<WriteLoadForecaster> createWriteLoadForecasters(
+            ThreadPool threadPool,
+            Settings settings,
+            ClusterSettings clusterSettings
+        ) {
+            return List.of(new WriteLoadForecaster() {
+                @Override
+                public Metadata.Builder withWriteLoadForecastForWriteIndex(String dataStreamName, Metadata.Builder metadata) {
+                    return metadata;
+                }
+
+                @Override
+                public OptionalDouble getForecastedWriteLoad(IndexMetadata indexMetadata) {
+                    if (indexMetadata.getIndex().getName().contains("write-load-test")) {
+                        return OptionalDouble.of(WRITE_LOAD_FORECAST_PER_SHARD);
+                    }
+                    return OptionalDouble.empty();
+                }
+            });
+        }
     }
 }
