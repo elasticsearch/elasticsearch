@@ -44,10 +44,8 @@ representation of this internal state for debugging or diagnostic purposes. You
 may need to consult the {es} source code to determine the precise meaning of
 the response.
 
-By default the cluster state API will route requests to the elected master node
-since this node is the authoritative source of cluster states. You can also
-retrieve the cluster state held on the node handling the API request by adding
-the query parameter `?local=true`.
+The cluster state API will retrieve the cluster state held on the node handling
+the API request.
 
 {es} may need to expend significant effort to compute a response to this API in
 larger clusters, and the response may comprise a very large quantity of data.
@@ -127,7 +125,7 @@ include::{es-ref-dir}/rest-api/common-parms.asciidoc[tag=flat-settings]
     (Optional, Boolean) If `true`, unavailable indices (missing or closed) will 
     be ignored.
 
-include::{es-ref-dir}/rest-api/common-parms.asciidoc[tag=local]
+include::{es-ref-dir}/rest-api/common-parms.asciidoc[tag=local-deprecated-9.0.0]
 
 include::{es-ref-dir}/rest-api/common-parms.asciidoc[tag=master-timeout]
 
