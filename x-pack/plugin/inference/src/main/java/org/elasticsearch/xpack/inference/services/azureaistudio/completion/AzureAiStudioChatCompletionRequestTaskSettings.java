@@ -18,7 +18,7 @@ import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractOpt
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractOptionalDoubleInRange;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractOptionalPositiveInteger;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DO_SAMPLE_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_NEW_TOKENS_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_TOKENS_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TEMPERATURE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TOP_P_FIELD;
 
@@ -26,7 +26,7 @@ public record AzureAiStudioChatCompletionRequestTaskSettings(
     @Nullable Double temperature,
     @Nullable Double topP,
     @Nullable Boolean doSample,
-    @Nullable Integer maxNewTokens
+    @Nullable Integer maxTokens
 ) {
 
     public static final AzureAiStudioChatCompletionRequestTaskSettings EMPTY_SETTINGS = new AzureAiStudioChatCompletionRequestTaskSettings(
@@ -67,9 +67,9 @@ public record AzureAiStudioChatCompletionRequestTaskSettings(
             validationException
         );
         Boolean doSample = extractOptionalBoolean(map, DO_SAMPLE_FIELD, validationException);
-        Integer maxNewTokens = extractOptionalPositiveInteger(
+        Integer maxTokens = extractOptionalPositiveInteger(
             map,
-            MAX_NEW_TOKENS_FIELD,
+            MAX_TOKENS_FIELD,
             ModelConfigurations.TASK_SETTINGS,
             validationException
         );
@@ -78,6 +78,6 @@ public record AzureAiStudioChatCompletionRequestTaskSettings(
             throw validationException;
         }
 
-        return new AzureAiStudioChatCompletionRequestTaskSettings(temperature, topP, doSample, maxNewTokens);
+        return new AzureAiStudioChatCompletionRequestTaskSettings(temperature, topP, doSample, maxTokens);
     }
 }

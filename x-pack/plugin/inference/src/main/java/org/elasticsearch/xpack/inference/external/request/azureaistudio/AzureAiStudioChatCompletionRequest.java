@@ -68,11 +68,11 @@ public class AzureAiStudioChatCompletionRequest extends AzureAiStudioRequest {
         return new AzureAiStudioChatCompletionRequestEntity(
             input,
             serviceSettings.deploymentType(),
-            serviceSettings.deploymentName(),
+            serviceSettings.model(),
             taskSettings.temperature(),
             taskSettings.topP(),
             taskSettings.doSample(),
-            taskSettings.maxNewTokens(),
+            taskSettings.maxTokens(),
             isStreaming()
         );
     }

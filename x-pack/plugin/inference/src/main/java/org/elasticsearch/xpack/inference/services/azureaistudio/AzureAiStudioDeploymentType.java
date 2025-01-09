@@ -13,8 +13,6 @@ public enum AzureAiStudioDeploymentType {
     AZURE_AI_MODEL_INFERENCE_SERVICE,
     SERVERLESS_API;
 
-    public static String NAME = "azure_ai_studio_deployment_type";
-
     public static AzureAiStudioDeploymentType fromString(String name) {
         return valueOf(name.trim().toUpperCase(Locale.ROOT));
     }

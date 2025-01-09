@@ -17,6 +17,7 @@ public class AzureOpenAiUtils {
     public static final String COMPLETIONS_PATH = "completions";
     public static final String API_VERSION_PARAMETER = "api-version";
     public static final String API_KEY_HEADER = "api-key";
+    public static final String BEARER_PREFIX = "Bearer ";
 
     private AzureOpenAiUtils() {}
 }

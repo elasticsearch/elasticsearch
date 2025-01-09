@@ -100,14 +100,14 @@ public class AzureAiStudioEmbeddingsServiceSettings extends AzureAiStudioService
     public AzureAiStudioEmbeddingsServiceSettings(
         String target,
         AzureAiStudioDeploymentType deploymentType,
-        @Nullable String deploymentName,
+        @Nullable String model,
         @Nullable Integer dimensions,
         Boolean dimensionsSetByUser,
         @Nullable Integer maxInputTokens,
         @Nullable SimilarityMeasure similarity,
         RateLimitSettings rateLimitSettings
     ) {
-        super(target, deploymentType, deploymentName, rateLimitSettings);
+        super(target, deploymentType, model, rateLimitSettings);
         this.dimensions = dimensions;
         this.dimensionsSetByUser = dimensionsSetByUser;
         this.maxInputTokens = maxInputTokens;
@@ -126,7 +126,7 @@ public class AzureAiStudioEmbeddingsServiceSettings extends AzureAiStudioService
         this(
             fields.baseCommonFields.target(),
             fields.baseCommonFields.deploymentType(),
-            fields.baseCommonFields.deploymentName(),
+            fields.baseCommonFields.model(),
             fields.dimensions(),
             fields.dimensionsSetByUser(),
             fields.maxInputTokens(),
@@ -221,7 +221,7 @@ public class AzureAiStudioEmbeddingsServiceSettings extends AzureAiStudioService
 
         return Objects.equals(target, that.target)
             && Objects.equals(deploymentType, that.deploymentType)
-            && Objects.equals(deploymentName, that.deploymentName)
+            && Objects.equals(model, that.model)
             && Objects.equals(dimensions, that.dimensions)
             && Objects.equals(dimensionsSetByUser, that.dimensionsSetByUser)
             && Objects.equals(maxInputTokens, that.maxInputTokens)
@@ -231,7 +231,7 @@ public class AzureAiStudioEmbeddingsServiceSettings extends AzureAiStudioService
 
     @Override
     public int hashCode() {
-        return Objects.hash(target, deploymentType, deploymentName, dimensions,
+        return Objects.hash(target, deploymentType, model, dimensions,
             dimensionsSetByUser, maxInputTokens, similarity, rateLimitSettings);
     }
 }

@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DO_SAMPLE_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_NEW_TOKENS_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_TOKENS_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TEMPERATURE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TOP_P_FIELD;
 import static org.hamcrest.Matchers.containsString;
@@ -46,7 +46,7 @@ public class AzureAiStudioChatCompletionTaskSettingsTests extends AbstractBWCWir
         if (newSettings.doSample() != null) settingsMap.put(DO_SAMPLE_FIELD, newSettings.doSample());
         if (newSettings.temperature() != null) settingsMap.put(TEMPERATURE_FIELD, newSettings.temperature());
         if (newSettings.topP() != null) settingsMap.put(TOP_P_FIELD, newSettings.topP());
-        if (newSettings.maxNewTokens() != null) settingsMap.put(MAX_NEW_TOKENS_FIELD, newSettings.maxNewTokens());
+        if (newSettings.maxTokens() != null) settingsMap.put(MAX_TOKENS_FIELD, newSettings.maxTokens());
 
         AzureAiStudioChatCompletionTaskSettings updatedSettings = (AzureAiStudioChatCompletionTaskSettings) initialSettings
             .updatedTaskSettings(Collections.unmodifiableMap(settingsMap));
@@ -58,8 +58,8 @@ public class AzureAiStudioChatCompletionTaskSettingsTests extends AbstractBWCWir
         assertEquals(newSettings.topP() == null ? initialSettings.topP() : newSettings.topP(), updatedSettings.topP());
         assertEquals(newSettings.doSample() == null ? initialSettings.doSample() : newSettings.doSample(), updatedSettings.doSample());
         assertEquals(
-            newSettings.maxNewTokens() == null ? initialSettings.maxNewTokens() : newSettings.maxNewTokens(),
-            updatedSettings.maxNewTokens()
+            newSettings.maxTokens() == null ? initialSettings.maxTokens() : newSettings.maxTokens(),
+            updatedSettings.maxTokens()
         );
     }
 
@@ -111,26 +111,26 @@ public class AzureAiStudioChatCompletionTaskSettingsTests extends AbstractBWCWir
         );
     }
 
-    public void testFromMap_MaxNewTokensIsInvalidValue_ThrowsValidationException() {
+    public void testFromMap_MaxTokensIsInvalidValue_ThrowsValidationException() {
         var taskMap = getTaskSettingsMap(null, 2.0, true, 512);
-        taskMap.put(MAX_NEW_TOKENS_FIELD, "invalid");
+        taskMap.put(MAX_TOKENS_FIELD, "invalid");
 
         var thrownException = expectThrows(ValidationException.class, () -> AzureAiStudioChatCompletionTaskSettings.fromMap(taskMap));
 
         MatcherAssert.assertThat(
             thrownException.getMessage(),
             containsString(
-                Strings.format("field [max_new_tokens] is not of the expected type. The value [invalid] cannot be converted to a [Integer]")
+                Strings.format("field [max_tokens] is not of the expected type. The value [invalid] cannot be converted to a [Integer]")
             )
         );
     }
 
     public void testFromMap_WithNoValues_DoesNotThrowException() {
-        var taskMap = AzureAiStudioChatCompletionTaskSettings.fromMap(new HashMap<String, Object>(Map.of()));
+        var taskMap = AzureAiStudioChatCompletionTaskSettings.fromMap(new HashMap<>(Map.of()));
         assertNull(taskMap.temperature());
         assertNull(taskMap.topP());
         assertNull(taskMap.doSample());
-        assertNull(taskMap.maxNewTokens());
+        assertNull(taskMap.maxTokens());
     }
 
     public void testOverrideWith_KeepsOriginalValuesWithOverridesAreNull() {
@@ -163,7 +163,7 @@ public class AzureAiStudioChatCompletionTaskSettingsTests extends AbstractBWCWir
         MatcherAssert.assertThat(overriddenTaskSettings, is(new AzureAiStudioChatCompletionTaskSettings(1.0, 2.0, false, 512)));
     }
 
-    public void testOverrideWith_UsesMaxNewTokensOverride() {
+    public void testOverrideWith_UsesMaxTokensOverride() {
         var settings = AzureAiStudioChatCompletionTaskSettings.fromMap(getTaskSettingsMap(1.0, 2.0, true, 512));
         var overrideSettings = AzureAiStudioChatCompletionRequestTaskSettings.fromMap(getTaskSettingsMap(null, null, null, 128));
         var overriddenTaskSettings = AzureAiStudioChatCompletionTaskSettings.of(settings, overrideSettings);
@@ -188,14 +188,14 @@ public class AzureAiStudioChatCompletionTaskSettingsTests extends AbstractBWCWir
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, is("""
-            {"temperature":1.0,"top_p":2.0,"do_sample":true,"max_new_tokens":512}"""));
+            {"temperature":1.0,"top_p":2.0,"do_sample":true,"max_tokens":512}"""));
     }
 
     public static Map<String, Object> getTaskSettingsMap(
         @Nullable Double temperature,
         @Nullable Double topP,
         @Nullable Boolean doSample,
-        @Nullable Integer maxNewTokens
+        @Nullable Integer maxTokens
     ) {
         var map = new HashMap<String, Object>();
 
@@ -211,8 +211,8 @@ public class AzureAiStudioChatCompletionTaskSettingsTests extends AbstractBWCWir
             map.put(DO_SAMPLE_FIELD, doSample);
         }
 
-        if (maxNewTokens != null) {
-            map.put(MAX_NEW_TOKENS_FIELD, maxNewTokens);
+        if (maxTokens != null) {
+            map.put(MAX_TOKENS_FIELD, maxTokens);
         }
 
         return map;

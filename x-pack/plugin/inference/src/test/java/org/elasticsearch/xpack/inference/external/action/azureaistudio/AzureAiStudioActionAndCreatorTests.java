@@ -28,8 +28,7 @@ import org.elasticsearch.xpack.inference.external.http.sender.HttpRequestSenderT
 import org.elasticsearch.xpack.inference.logging.ThrottlerManager;
 import org.elasticsearch.xpack.inference.services.ServiceComponents;
 import org.elasticsearch.xpack.inference.services.ServiceComponentsTests;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
+import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
 import org.elasticsearch.xpack.inference.services.azureaistudio.completion.AzureAiStudioChatCompletionModelTests;
 import org.elasticsearch.xpack.inference.services.azureaistudio.embeddings.AzureAiStudioEmbeddingsModelTests;
 import org.junit.After;
@@ -102,8 +101,8 @@ public class AzureAiStudioActionAndCreatorTests extends ESTestCase {
             var model = AzureAiStudioEmbeddingsModelTests.createModel(
                 "id",
                 "http://will-be-replaced.local",
-                AzureAiStudioProvider.OPENAI,
-                AzureAiStudioEndpointType.TOKEN,
+                AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+                "test-model",
                 "apikey"
             );
             model.setURI(getUrl(webServer));
@@ -122,8 +121,9 @@ public class AzureAiStudioActionAndCreatorTests extends ESTestCase {
             assertThat(webServer.requests().get(0).getHeader(API_KEY_HEADER), equalTo("apikey"));
 
             var requestMap = entityAsMap(webServer.requests().get(0).getBody());
-            assertThat(requestMap.size(), is(1));
+            assertThat(requestMap.size(), is(2));
             assertThat(requestMap.get("input"), is(List.of("abc")));
+            assertThat(requestMap.get("model"), is("test-model"));
         }
     }
 
@@ -151,8 +151,8 @@ public class AzureAiStudioActionAndCreatorTests extends ESTestCase {
             var model = AzureAiStudioChatCompletionModelTests.createModel(
                 "id",
                 "http://will-be-replaced.local",
-                AzureAiStudioProvider.COHERE,
-                AzureAiStudioEndpointType.TOKEN,
+                AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+                "test-model",
                 "apikey"
             );
             model.setURI(webserverUrl);
@@ -172,15 +172,16 @@ public class AzureAiStudioActionAndCreatorTests extends ESTestCase {
 
             assertNull(request.getUri().getQuery());
             assertThat(request.getHeader(HttpHeaders.CONTENT_TYPE), equalTo(XContentType.JSON.mediaType()));
-            assertThat(request.getHeader(HttpHeaders.AUTHORIZATION), equalTo("apikey"));
+            assertThat(request.getHeader(API_KEY_HEADER), equalTo("apikey"));
 
             var requestMap = entityAsMap(request.getBody());
-            assertThat(requestMap.size(), is(1));
+            assertThat(requestMap.size(), is(2));
             assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abc"))));
+            assertThat(requestMap.get("model"), is("test-model"));
         }
     }
 
-    private static String testEmbeddingsTokenResponseJson = """
+    private static final String testEmbeddingsTokenResponseJson = """
         {
           "object": "list",
           "data": [
@@ -201,7 +202,7 @@ public class AzureAiStudioActionAndCreatorTests extends ESTestCase {
         }
         """;
 
-    private static String testCompletionTokenResponseJson = """
+    private static final String testCompletionTokenResponseJson = """
         {
             "choices": [
                 {

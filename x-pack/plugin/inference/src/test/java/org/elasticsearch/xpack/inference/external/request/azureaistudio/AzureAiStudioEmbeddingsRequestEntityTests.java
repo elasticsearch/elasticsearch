@@ -22,67 +22,67 @@ import static org.hamcrest.CoreMatchers.is;
 public class AzureAiStudioEmbeddingsRequestEntityTests extends ESTestCase {
     public void testXContent_WritesUserWhenDefined() throws IOException {
         var entity = new AzureAiStudioEmbeddingsRequestEntity(
-            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-deployment-name",
-            List.of("abc"), "testuser", null, false);
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-model",
+            List.of("abc"), null, false);
 
         XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
         entity.toXContent(builder, null);
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, is("""
-            {"input":["abc"],"user":"testuser"}"""));
+            {"model":"test-model","input":["abc"]}"""));
     }
 
     public void testXContent_DoesNotWriteUserWhenItIsNull() throws IOException {
         var entity = new AzureAiStudioEmbeddingsRequestEntity(
-            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-deployment",
-            List.of("abc"), null, null, false);
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-model",
+            List.of("abc"), null, false);
 
         XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
         entity.toXContent(builder, null);
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, is("""
-            {"input":["abc"]}"""));
+            {"model":"test-model","input":["abc"]}"""));
     }
 
     public void testXContent_DoesNotWriteDimensionsWhenNotSetByUser() throws IOException {
         var entity = new AzureAiStudioEmbeddingsRequestEntity(
-            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-deployment",
-            List.of("abc"), null, 100, false);
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-model",
+            List.of("abc"), 100, false);
 
         XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
         entity.toXContent(builder, null);
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, is("""
-            {"input":["abc"]}"""));
+            {"model":"test-model","input":["abc"]}"""));
     }
 
     public void testXContent_DoesNotWriteDimensionsWhenNull_EvenIfSetByUserIsTrue() throws IOException {
         var entity = new AzureAiStudioEmbeddingsRequestEntity(
-            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-deployment",
-            List.of("abc"), null, null, true);
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-model",
+            List.of("abc"), null, true);
 
         XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
         entity.toXContent(builder, null);
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, is("""
-            {"input":["abc"]}"""));
+            {"model":"test-model","input":["abc"]}"""));
     }
 
     public void testXContent_WritesDimensionsWhenNonNull_AndSetByUserIsTrue() throws IOException {
         var entity = new AzureAiStudioEmbeddingsRequestEntity(
-            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-deployment",
-            List.of("abc"), null, 100, true);
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-model",
+            List.of("abc"), 100, true);
 
         XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
         entity.toXContent(builder, null);
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, is("""
-            {"input":["abc"],"dimensions":100}"""));
+            {"model":"test-model","input":["abc"],"dimensions":100}"""));
     }
 
 }

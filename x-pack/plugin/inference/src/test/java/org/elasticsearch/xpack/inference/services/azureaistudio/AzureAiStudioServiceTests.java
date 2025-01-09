@@ -98,7 +98,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
 
     private static final String DEFAULT_TARGET = "http://target.local";
     private static final AzureAiStudioDeploymentType DEFAULT_DEPLOYMENT_TYPE = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE;
-    private static final String DEFAULT_DEPLOYMENT_NAME = "test-deployment";
+    private static final String DEFAULT_MODEL = "test-model";
 
     @Before
     public void init() throws Exception {
@@ -123,7 +123,6 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 assertThat(embeddingsModel.getServiceSettings().target(), is(DEFAULT_TARGET));
                 assertThat(embeddingsModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
                 assertThat(embeddingsModel.getSecretSettings().apiKey().toString(), is("secret"));
-                assertThat(embeddingsModel.getTaskSettings().user(), is("user"));
             }, exception -> fail("Unexpected exception: " + exception));
 
             service.parseRequestConfig(
@@ -131,9 +130,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 TaskType.TEXT_EMBEDDING,
                 getRequestConfigMap(
                     getEmbeddingsServiceSettingsMap(
-                        DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                        DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                         null, null, null, null),
-                    getEmbeddingsTaskSettingsMap("user"),
+                    getEmbeddingsTaskSettingsMap(null),
                     getSecretSettingsMap("secret")
                 ),
                 modelVerificationListener
@@ -149,9 +148,8 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 var embeddingsModel = (AzureAiStudioEmbeddingsModel) model;
                 assertThat(embeddingsModel.getServiceSettings().target(), is(DEFAULT_TARGET));
                 assertThat(embeddingsModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-                assertThat(embeddingsModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+                assertThat(embeddingsModel.getServiceSettings().model(), is(DEFAULT_MODEL));
                 assertThat(embeddingsModel.getSecretSettings().apiKey().toString(), is("secret"));
-                assertThat(embeddingsModel.getTaskSettings().user(), is("user"));
                 assertThat(embeddingsModel.getConfigurations().getChunkingSettings(), instanceOf(ChunkingSettings.class));
             }, exception -> fail("Unexpected exception: " + exception));
 
@@ -160,9 +158,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 TaskType.TEXT_EMBEDDING,
                 getRequestConfigMap(
                     getEmbeddingsServiceSettingsMap(
-                        DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                        DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                         null, null, null, null),
-                    getEmbeddingsTaskSettingsMap("user"),
+                    getEmbeddingsTaskSettingsMap(null),
                     createRandomChunkingSettingsMap(),
                     getSecretSettingsMap("secret")
                 ),
@@ -179,9 +177,8 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 var embeddingsModel = (AzureAiStudioEmbeddingsModel) model;
                 assertThat(embeddingsModel.getServiceSettings().target(), is(DEFAULT_TARGET));
                 assertThat(embeddingsModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-                assertThat(embeddingsModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+                assertThat(embeddingsModel.getServiceSettings().model(), is(DEFAULT_MODEL));
                 assertThat(embeddingsModel.getSecretSettings().apiKey().toString(), is("secret"));
-                assertThat(embeddingsModel.getTaskSettings().user(), is("user"));
                 assertThat(embeddingsModel.getConfigurations().getChunkingSettings(), instanceOf(ChunkingSettings.class));
             }, exception -> fail("Unexpected exception: " + exception));
 
@@ -190,8 +187,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 TaskType.TEXT_EMBEDDING,
                 getRequestConfigMap(
                     getEmbeddingsServiceSettingsMap(
-                        DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
-                        null, null, null, null),                    getEmbeddingsTaskSettingsMap("user"),
+                        DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
+                        null, null, null, null),
+                    getEmbeddingsTaskSettingsMap(null),
                     getSecretSettingsMap("secret")
                 ),
                 modelVerificationListener
@@ -207,7 +205,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 var completionModel = (AzureAiStudioChatCompletionModel) model;
                 assertThat(completionModel.getServiceSettings().target(), is(DEFAULT_TARGET));
                 assertThat(completionModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-                assertThat(completionModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+                assertThat(completionModel.getServiceSettings().model(), is(DEFAULT_MODEL));
                 assertThat(completionModel.getSecretSettings().apiKey().toString(), is("secret"));
                 assertNull(completionModel.getTaskSettings().temperature());
                 assertTrue(completionModel.getTaskSettings().doSample());
@@ -217,7 +215,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 "id",
                 TaskType.COMPLETION,
                 getRequestConfigMap(
-                    getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME),
+                    getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL),
                     getChatCompletionTaskSettingsMap(null, null, true, null),
                     getSecretSettingsMap("secret")
                 ),
@@ -240,7 +238,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 "id",
                 TaskType.SPARSE_EMBEDDING,
                 getRequestConfigMap(
-                    getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME),
+                    getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL),
                     getChatCompletionTaskSettingsMap(null, null, true, null),
                     getSecretSettingsMap("secret")
                 ),
@@ -252,7 +250,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParseRequestConfig_ThrowsWhenAnExtraKeyExistsInConfig() throws IOException {
         try (var service = createService()) {
             var config = getRequestConfigMap(
-                getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME),
+                getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL),
                 getChatCompletionTaskSettingsMap(null, null, true, null),
                 getSecretSettingsMap("secret")
             );
@@ -276,11 +274,11 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParseRequestConfig_ThrowsWhenAnExtraKeyExistsInEmbeddingServiceSettingsMap() throws IOException {
         try (var service = createService()) {
             var serviceSettings = getEmbeddingsServiceSettingsMap(
-                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                 null, null, null, null);
             serviceSettings.put("extra_key", "value");
 
-            var config = getRequestConfigMap(serviceSettings, getEmbeddingsTaskSettingsMap("user"), getSecretSettingsMap("secret"));
+            var config = getRequestConfigMap(serviceSettings, getEmbeddingsTaskSettingsMap(null), getSecretSettingsMap("secret"));
 
             ActionListener<Model> modelVerificationListener = ActionListener.wrap(
                 model -> fail("Expected exception, but got model: " + model),
@@ -301,9 +299,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
         try (var service = createService()) {
             var config = getRequestConfigMap(
                 getEmbeddingsServiceSettingsMap(
-                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                     1024, true, null, null),
-                getEmbeddingsTaskSettingsMap("user"),
+                getEmbeddingsTaskSettingsMap(null),
                 getSecretSettingsMap("secret")
             );
 
@@ -324,12 +322,12 @@ public class AzureAiStudioServiceTests extends ESTestCase {
 
     public void testParseRequestConfig_ThrowsWhenAnExtraKeyExistsInEmbeddingTaskSettingsMap() throws IOException {
         try (var service = createService()) {
-            var taskSettings = getEmbeddingsTaskSettingsMap("user");
+            var taskSettings = getEmbeddingsTaskSettingsMap(null);
             taskSettings.put("extra_key", "value");
 
             var config = getRequestConfigMap(
                 getEmbeddingsServiceSettingsMap(
-                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                     null, null, null, null),
                 taskSettings,
                 getSecretSettingsMap("secret")
@@ -357,9 +355,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
 
             var config = getRequestConfigMap(
                 getEmbeddingsServiceSettingsMap(
-                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                     null, null, null, null),
-                getEmbeddingsTaskSettingsMap("user"),
+                getEmbeddingsTaskSettingsMap(null),
                 secretSettings
             );
 
@@ -381,7 +379,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParseRequestConfig_ThrowsWhenAnExtraKeyExistsInChatCompletionServiceSettingsMap() throws IOException {
         try (var service = createService()) {
             var serviceSettings = getChatCompletionServiceSettingsMap(
-                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME);
+                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL);
             serviceSettings.put("extra_key", "value");
 
             var config = getRequestConfigMap(
@@ -411,7 +409,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             taskSettings.put("extra_key", "value");
 
             var config = getRequestConfigMap(
-                getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME),
+                getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL),
                 taskSettings,
                 getSecretSettingsMap("secret")
             );
@@ -437,7 +435,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             secretSettings.put("extra_key", "value");
 
             var config = getRequestConfigMap(
-                getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME),
+                getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL),
                 getChatCompletionTaskSettingsMap(null, 2.0, null, null),
                 secretSettings
             );
@@ -461,9 +459,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
         try (var service = createService()) {
             var config = getPersistedConfigMap(
                 getEmbeddingsServiceSettingsMap(
-                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                     1024, true, 512, null),
-                getEmbeddingsTaskSettingsMap("user"),
+                getEmbeddingsTaskSettingsMap(null),
                 getSecretSettingsMap("secret")
             );
 
@@ -474,12 +472,11 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var embeddingsModel = (AzureAiStudioEmbeddingsModel) model;
             assertThat(embeddingsModel.getServiceSettings().target(), is(DEFAULT_TARGET));
             assertThat(embeddingsModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-            assertThat(embeddingsModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+            assertThat(embeddingsModel.getServiceSettings().model(), is(DEFAULT_MODEL));
             assertThat(embeddingsModel.getServiceSettings().dimensions(), is(1024));
             assertThat(embeddingsModel.getServiceSettings().dimensionsSetByUser(), is(true));
             assertThat(embeddingsModel.getServiceSettings().maxInputTokens(), is(512));
             assertThat(embeddingsModel.getSecretSettings().apiKey().toString(), is("secret"));
-            assertThat(embeddingsModel.getTaskSettings().user(), is("user"));
         }
     }
 
@@ -487,9 +484,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
         try (var service = createService()) {
             var config = getPersistedConfigMap(
                 getEmbeddingsServiceSettingsMap(
-                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                     1024, true, 512, null),
-                getEmbeddingsTaskSettingsMap("user"),
+                getEmbeddingsTaskSettingsMap(null),
                 createRandomChunkingSettingsMap(),
                 getSecretSettingsMap("secret")
             );
@@ -501,12 +498,11 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var embeddingsModel = (AzureAiStudioEmbeddingsModel) model;
             assertThat(embeddingsModel.getServiceSettings().target(), is(DEFAULT_TARGET));
             assertThat(embeddingsModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-            assertThat(embeddingsModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+            assertThat(embeddingsModel.getServiceSettings().model(), is(DEFAULT_MODEL));
             assertThat(embeddingsModel.getServiceSettings().dimensions(), is(1024));
             assertThat(embeddingsModel.getServiceSettings().dimensionsSetByUser(), is(true));
             assertThat(embeddingsModel.getServiceSettings().maxInputTokens(), is(512));
             assertThat(embeddingsModel.getSecretSettings().apiKey().toString(), is("secret"));
-            assertThat(embeddingsModel.getTaskSettings().user(), is("user"));
             assertThat(embeddingsModel.getConfigurations().getChunkingSettings(), instanceOf(ChunkingSettings.class));
         }
     }
@@ -515,9 +511,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
         try (var service = createService()) {
             var config = getPersistedConfigMap(
                 getEmbeddingsServiceSettingsMap(
-                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                    DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                     1024, true, 512, null),
-                getEmbeddingsTaskSettingsMap("user"),
+                getEmbeddingsTaskSettingsMap(null),
                 getSecretSettingsMap("secret")
             );
 
@@ -528,12 +524,11 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var embeddingsModel = (AzureAiStudioEmbeddingsModel) model;
             assertThat(embeddingsModel.getServiceSettings().target(), is(DEFAULT_TARGET));
             assertThat(embeddingsModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-            assertThat(embeddingsModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+            assertThat(embeddingsModel.getServiceSettings().model(), is(DEFAULT_MODEL));
             assertThat(embeddingsModel.getServiceSettings().dimensions(), is(1024));
             assertThat(embeddingsModel.getServiceSettings().dimensionsSetByUser(), is(true));
             assertThat(embeddingsModel.getServiceSettings().maxInputTokens(), is(512));
             assertThat(embeddingsModel.getSecretSettings().apiKey().toString(), is("secret"));
-            assertThat(embeddingsModel.getTaskSettings().user(), is("user"));
             assertThat(embeddingsModel.getConfigurations().getChunkingSettings(), instanceOf(ChunkingSettings.class));
         }
     }
@@ -541,7 +536,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParsePersistedConfig_CreatesAnAzureAiStudioChatCompletionModel() throws IOException {
         try (var service = createService()) {
             var config = getPersistedConfigMap(
-                getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME),
+                getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL),
                 getChatCompletionTaskSettingsMap(1.0, 2.0, true, 512),
                 getSecretSettingsMap("secret")
             );
@@ -553,11 +548,11 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var chatCompletionModel = (AzureAiStudioChatCompletionModel) model;
             assertThat(chatCompletionModel.getServiceSettings().target(), is(DEFAULT_TARGET));
             assertThat(chatCompletionModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-            assertThat(chatCompletionModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+            assertThat(chatCompletionModel.getServiceSettings().model(), is(DEFAULT_MODEL));
             assertThat(chatCompletionModel.getTaskSettings().temperature(), is(1.0));
             assertThat(chatCompletionModel.getTaskSettings().topP(), is(2.0));
             assertThat(chatCompletionModel.getTaskSettings().doSample(), is(true));
-            assertThat(chatCompletionModel.getTaskSettings().maxNewTokens(), is(512));
+            assertThat(chatCompletionModel.getTaskSettings().maxTokens(), is(512));
         }
     }
 
@@ -575,7 +570,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 "id",
                 TaskType.SPARSE_EMBEDDING,
                 getRequestConfigMap(
-                    getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME),
+                    getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL),
                     getChatCompletionTaskSettingsMap(null, null, true, null),
                     getSecretSettingsMap("secret")
                 ),
@@ -587,7 +582,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParsePersistedConfigWithSecrets_ThrowsErrorTryingToParseInvalidModel() throws IOException {
         try (var service = createService()) {
             var config = getPersistedConfigMap(
-                getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME),
+                getChatCompletionServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL),
                 getChatCompletionTaskSettingsMap(1.0, 2.0, true, 512),
                 getSecretSettingsMap("secret")
             );
@@ -607,9 +602,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParsePersistedConfig_DoesNotThrowWhenAnExtraKeyExistsInConfig() throws IOException {
         try (var service = createService()) {
             var serviceSettings = getEmbeddingsServiceSettingsMap(
-                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                 1024, true, 512, null);
-            var taskSettings = getEmbeddingsTaskSettingsMap("user");
+            var taskSettings = getEmbeddingsTaskSettingsMap(null);
             var secretSettings = getSecretSettingsMap("secret");
             var config = getPersistedConfigMap(serviceSettings, taskSettings, secretSettings);
             config.config().put("extra_key", "value");
@@ -623,11 +618,11 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParsePersistedConfig_DoesNotThrowWhenExtraKeyExistsInEmbeddingServiceSettingsMap() throws IOException {
         try (var service = createService()) {
             var serviceSettings = getEmbeddingsServiceSettingsMap(
-                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                 1024, true, 512, null);
             serviceSettings.put("extra_key", "value");
 
-            var taskSettings = getEmbeddingsTaskSettingsMap("user");
+            var taskSettings = getEmbeddingsTaskSettingsMap(null);
             var secretSettings = getSecretSettingsMap("secret");
             var config = getPersistedConfigMap(serviceSettings, taskSettings, secretSettings);
 
@@ -640,9 +635,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParsePersistedConfig_DoesNotThrowWhenAnExtraKeyExistsInEmbeddingTaskSettingsMap() throws IOException {
         try (var service = createService()) {
             var serviceSettings = getEmbeddingsServiceSettingsMap(
-                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                 1024, true, 512, null);
-            var taskSettings = getEmbeddingsTaskSettingsMap("user");
+            var taskSettings = getEmbeddingsTaskSettingsMap(null);
             taskSettings.put("extra_key", "value");
 
             var secretSettings = getSecretSettingsMap("secret");
@@ -656,9 +651,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
 
     public void testParsePersistedConfig_DoesNotThrowWhenAnExtraKeyExistsInEmbeddingSecretSettingsMap() throws IOException {
         try (var service = createService()) {
-            var serviceSettings = getEmbeddingsServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+            var serviceSettings = getEmbeddingsServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                 1024, true, 512, null);
-            var taskSettings = getEmbeddingsTaskSettingsMap("user");
+            var taskSettings = getEmbeddingsTaskSettingsMap(null);
             var secretSettings = getSecretSettingsMap("secret");
             secretSettings.put("extra_key", "value");
 
@@ -673,7 +668,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParsePersistedConfig_DoesNotThrowWhenAnExtraKeyExistsInChatCompletionServiceSettingsMap() throws IOException {
         try (var service = createService()) {
             var serviceSettings = getChatCompletionServiceSettingsMap(
-                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME);
+                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL);
             serviceSettings.put("extra_key", "value");
             var taskSettings = getChatCompletionTaskSettingsMap(1.0, 2.0, true, 512);
             var secretSettings = getSecretSettingsMap("secret");
@@ -688,7 +683,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParsePersistedConfig_DoesNotThrowWhenAnExtraKeyExistsInChatCompletionTaskSettingsMap() throws IOException {
         try (var service = createService()) {
             var serviceSettings = getChatCompletionServiceSettingsMap(
-                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME);
+                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL);
             var taskSettings = getChatCompletionTaskSettingsMap(1.0, 2.0, true, 512);
             taskSettings.put("extra_key", "value");
             var secretSettings = getSecretSettingsMap("secret");
@@ -703,7 +698,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParsePersistedConfig_DoesNotThrowWhenAnExtraKeyExistsInChatCompletionSecretSettingsMap() throws IOException {
         try (var service = createService()) {
             var serviceSettings = getChatCompletionServiceSettingsMap(
-                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME);
+                DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL);
             var taskSettings = getChatCompletionTaskSettingsMap(1.0, 2.0, true, 512);
             var secretSettings = getSecretSettingsMap("secret");
             secretSettings.put("extra_key", "value");
@@ -718,9 +713,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParsePersistedConfig_WithoutSecretsCreatesEmbeddingsModel() throws IOException {
         try (var service = createService()) {
             var config = getPersistedConfigMap(
-                getEmbeddingsServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                getEmbeddingsServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                     1024, true, 512, null),
-                getEmbeddingsTaskSettingsMap("user"),
+                getEmbeddingsTaskSettingsMap(null),
                 Map.of()
             );
 
@@ -731,20 +726,19 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var embeddingsModel = (AzureAiStudioEmbeddingsModel) model;
             assertThat(embeddingsModel.getServiceSettings().target(), is(DEFAULT_TARGET));
             assertThat(embeddingsModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-            assertThat(embeddingsModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+            assertThat(embeddingsModel.getServiceSettings().model(), is(DEFAULT_MODEL));
             assertThat(embeddingsModel.getServiceSettings().dimensions(), is(1024));
             assertThat(embeddingsModel.getServiceSettings().dimensionsSetByUser(), is(true));
             assertThat(embeddingsModel.getServiceSettings().maxInputTokens(), is(512));
-            assertThat(embeddingsModel.getTaskSettings().user(), is("user"));
         }
     }
 
     public void testParsePersistedConfig_CreatesAnEmbeddingsModelWhenChunkingSettingsProvided() throws IOException {
         try (var service = createService()) {
             var config = getPersistedConfigMap(
-                getEmbeddingsServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                getEmbeddingsServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                     1024, true, 512, null),
-                getEmbeddingsTaskSettingsMap("user"),
+                getEmbeddingsTaskSettingsMap(null),
                 createRandomChunkingSettingsMap(),
                 Map.of()
             );
@@ -756,11 +750,10 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var embeddingsModel = (AzureAiStudioEmbeddingsModel) model;
             assertThat(embeddingsModel.getServiceSettings().target(), is(DEFAULT_TARGET));
             assertThat(embeddingsModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-            assertThat(embeddingsModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+            assertThat(embeddingsModel.getServiceSettings().model(), is(DEFAULT_MODEL));
             assertThat(embeddingsModel.getServiceSettings().dimensions(), is(1024));
             assertThat(embeddingsModel.getServiceSettings().dimensionsSetByUser(), is(true));
             assertThat(embeddingsModel.getServiceSettings().maxInputTokens(), is(512));
-            assertThat(embeddingsModel.getTaskSettings().user(), is("user"));
             assertThat(embeddingsModel.getConfigurations().getChunkingSettings(), instanceOf(ChunkingSettings.class));
         }
     }
@@ -768,9 +761,9 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     public void testParsePersistedConfig_CreatesAnEmbeddingsModelWhenChunkingSettingsNotProvided() throws IOException {
         try (var service = createService()) {
             var config = getPersistedConfigMap(
-                getEmbeddingsServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_DEPLOYMENT_NAME,
+                getEmbeddingsServiceSettingsMap(DEFAULT_TARGET, DEFAULT_DEPLOYMENT_TYPE.toString(), DEFAULT_MODEL,
                     1024, true, 512, null),
-                getEmbeddingsTaskSettingsMap("user"),
+                getEmbeddingsTaskSettingsMap(null),
                 Map.of()
             );
 
@@ -781,11 +774,10 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var embeddingsModel = (AzureAiStudioEmbeddingsModel) model;
             assertThat(embeddingsModel.getServiceSettings().target(), is(DEFAULT_TARGET));
             assertThat(embeddingsModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-            assertThat(embeddingsModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+            assertThat(embeddingsModel.getServiceSettings().model(), is(DEFAULT_MODEL));
             assertThat(embeddingsModel.getServiceSettings().dimensions(), is(1024));
             assertThat(embeddingsModel.getServiceSettings().dimensionsSetByUser(), is(true));
             assertThat(embeddingsModel.getServiceSettings().maxInputTokens(), is(512));
-            assertThat(embeddingsModel.getTaskSettings().user(), is("user"));
             assertThat(embeddingsModel.getConfigurations().getChunkingSettings(), instanceOf(ChunkingSettings.class));
         }
     }
@@ -796,7 +788,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 getChatCompletionServiceSettingsMap(
                     DEFAULT_TARGET,
                     DEFAULT_DEPLOYMENT_TYPE.toString(),
-                    DEFAULT_DEPLOYMENT_NAME),
+                    DEFAULT_MODEL),
                 getChatCompletionTaskSettingsMap(1.0, 2.0, true, 512),
                 Map.of()
             );
@@ -808,11 +800,11 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var chatCompletionModel = (AzureAiStudioChatCompletionModel) model;
             assertThat(chatCompletionModel.getServiceSettings().target(), is(DEFAULT_TARGET));
             assertThat(chatCompletionModel.getServiceSettings().deploymentType(), is(DEFAULT_DEPLOYMENT_TYPE));
-            assertThat(chatCompletionModel.getServiceSettings().deploymentName(), is(DEFAULT_DEPLOYMENT_NAME));
+            assertThat(chatCompletionModel.getServiceSettings().model(), is(DEFAULT_MODEL));
             assertThat(chatCompletionModel.getTaskSettings().temperature(), is(1.0));
             assertThat(chatCompletionModel.getTaskSettings().topP(), is(2.0));
             assertThat(chatCompletionModel.getTaskSettings().doSample(), is(true));
-            assertThat(chatCompletionModel.getTaskSettings().maxNewTokens(), is(512));
+            assertThat(chatCompletionModel.getTaskSettings().maxTokens(), is(512));
         }
     }
 
@@ -826,7 +818,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 "id",
                 getUrl(webServer),
                 DEFAULT_DEPLOYMENT_TYPE,
-                DEFAULT_DEPLOYMENT_NAME,
+                DEFAULT_MODEL,
                 "apikey",
                 null,
                 false,
@@ -847,7 +839,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                         "id",
                         getUrl(webServer),
                         DEFAULT_DEPLOYMENT_TYPE,
-                        DEFAULT_DEPLOYMENT_NAME,
+                        DEFAULT_MODEL,
                         "apikey",
                         2,
                         false,
@@ -862,7 +854,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             assertThat(webServer.requests(), hasSize(1));
 
             var requestMap = entityAsMap(webServer.requests().get(0).getBody());
-            MatcherAssert.assertThat(requestMap, Matchers.is(Map.of("input", List.of("how big"))));
+            MatcherAssert.assertThat(requestMap, Matchers.is(Map.of("input", List.of("how big"), "model", "test-model")));
         }
     }
 
@@ -876,7 +868,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 "id",
                 getUrl(webServer),
                 DEFAULT_DEPLOYMENT_TYPE,
-                DEFAULT_DEPLOYMENT_NAME,
+                DEFAULT_MODEL,
                 "apikey",
                 3,
                 true,
@@ -901,7 +893,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             assertThat(webServer.requests(), hasSize(1));
 
             var requestMap = entityAsMap(webServer.requests().get(0).getBody());
-            MatcherAssert.assertThat(requestMap, Matchers.is(Map.of("input", List.of("how big"), "dimensions", 3)));
+            MatcherAssert.assertThat(requestMap, Matchers.is(Map.of("input", List.of("how big"), "model", "test-model", "dimensions", 3)));
         }
     }
 
@@ -915,7 +907,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 "id",
                 getUrl(webServer),
                 DEFAULT_DEPLOYMENT_TYPE,
-                DEFAULT_DEPLOYMENT_NAME,
+                DEFAULT_MODEL,
                 "apikey",
                 null,
                 null,
@@ -934,13 +926,13 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                     AzureAiStudioChatCompletionModelTests.createModel(
                         "id",
                         getUrl(webServer),
-                        AzureAiStudioProvider.OPENAI,
-                        AzureAiStudioEndpointType.TOKEN,
+                        DEFAULT_DEPLOYMENT_TYPE,
+                        DEFAULT_MODEL,
                         "apikey",
                         null,
                         null,
                         null,
-                        AzureAiStudioChatCompletionTaskSettings.DEFAULT_MAX_NEW_TOKENS,
+                        AzureAiStudioChatCompletionTaskSettings.DEFAULT_MAX_TOKENS,
                         null
                     )
                 )
@@ -954,8 +946,8 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var model = AzureAiStudioChatCompletionModelTests.createModel(
                 randomAlphaOfLength(10),
                 randomAlphaOfLength(10),
-                randomFrom(AzureAiStudioProvider.values()),
-                randomFrom(AzureAiStudioEndpointType.values()),
+                randomFrom(AzureAiStudioDeploymentType.values()),
+                randomAlphaOfLength(10),
                 randomAlphaOfLength(10)
             );
             assertThrows(
@@ -980,8 +972,8 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var model = AzureAiStudioEmbeddingsModelTests.createModel(
                 randomAlphaOfLength(10),
                 randomAlphaOfLength(10),
-                randomFrom(AzureAiStudioProvider.values()),
-                randomFrom(AzureAiStudioEndpointType.values()),
+                randomFrom(AzureAiStudioDeploymentType.values()),
+                randomAlphaOfLength(10),
                 randomAlphaOfLength(10),
                 randomNonNegativeInt(),
                 randomBoolean(),
@@ -1005,8 +997,8 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var model = AzureAiStudioEmbeddingsModelTests.createModel(
                 randomAlphaOfLength(10),
                 randomAlphaOfLength(10),
-                randomFrom(AzureAiStudioProvider.values()),
-                randomFrom(AzureAiStudioEndpointType.values()),
+                randomFrom(AzureAiStudioDeploymentType.values()),
+                randomAlphaOfLength(10),
                 randomAlphaOfLength(10),
                 randomNonNegativeInt(),
                 randomBoolean(),
@@ -1033,8 +1025,8 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var model = AzureAiStudioChatCompletionModelTests.createModel(
                 randomAlphaOfLength(10),
                 randomAlphaOfLength(10),
-                randomFrom(AzureAiStudioProvider.values()),
-                randomFrom(AzureAiStudioEndpointType.values()),
+                randomFrom(AzureAiStudioDeploymentType.values()),
+                randomAlphaOfLength(10),
                 randomAlphaOfLength(10),
                 randomDouble(),
                 randomDouble(),
@@ -1047,10 +1039,10 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             assertThat(updatedModel, instanceOf(AzureAiStudioChatCompletionModel.class));
             AzureAiStudioChatCompletionTaskSettings updatedTaskSettings = (AzureAiStudioChatCompletionTaskSettings) updatedModel
                 .getTaskSettings();
-            Integer expectedMaxNewTokens = maxNewTokens == null
-                ? AzureAiStudioChatCompletionTaskSettings.DEFAULT_MAX_NEW_TOKENS
+            Integer expectedMaxTokens = maxNewTokens == null
+                ? AzureAiStudioChatCompletionTaskSettings.DEFAULT_MAX_TOKENS
                 : maxNewTokens;
-            assertEquals(expectedMaxNewTokens, updatedTaskSettings.maxNewTokens());
+            assertEquals(expectedMaxTokens, updatedTaskSettings.maxTokens());
         }
     }
 
@@ -1094,15 +1086,15 @@ public class AzureAiStudioServiceTests extends ESTestCase {
         var model = AzureAiStudioEmbeddingsModelTests.createModel(
             "id",
             getUrl(webServer),
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_DEPLOYMENT_TYPE,
+            DEFAULT_MODEL,
             createRandomChunkingSettings(),
             "apikey",
             null,
             false,
             null,
             null,
-            "user",
+            null,
             null
         );
         testChunkedInfer(model);
@@ -1112,15 +1104,15 @@ public class AzureAiStudioServiceTests extends ESTestCase {
         var model = AzureAiStudioEmbeddingsModelTests.createModel(
             "id",
             getUrl(webServer),
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_DEPLOYMENT_TYPE,
+            DEFAULT_MODEL,
             null,
             "apikey",
             null,
             false,
             null,
             null,
-            "user",
+            null,
             null
         );
         testChunkedInfer(model);
@@ -1197,7 +1189,6 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var requestMap = entityAsMap(webServer.requests().get(0).getBody());
             assertThat(requestMap.size(), Matchers.is(2));
             assertThat(requestMap.get("input"), Matchers.is(List.of("foo", "bar")));
-            assertThat(requestMap.get("user"), Matchers.is("user"));
         }
     }
 
@@ -1210,8 +1201,8 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var model = AzureAiStudioChatCompletionModelTests.createModel(
                 "id",
                 getUrl(webServer),
-                AzureAiStudioProvider.OPENAI,
-                AzureAiStudioEndpointType.TOKEN,
+                DEFAULT_DEPLOYMENT_TYPE,
+                DEFAULT_MODEL,
                 "apikey"
             );
 
@@ -1257,13 +1248,13 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                 "id",
                 getUrl(webServer),
                 DEFAULT_DEPLOYMENT_TYPE,
-                DEFAULT_DEPLOYMENT_NAME,
+                DEFAULT_MODEL,
                 "apikey",
                 null,
                 false,
                 null,
                 null,
-                "user",
+                null,
                 null
             );
             PlainActionFuture<InferenceServiceResults> listener = new PlainActionFuture<>();
@@ -1320,8 +1311,8 @@ public class AzureAiStudioServiceTests extends ESTestCase {
             var model = AzureAiStudioChatCompletionModelTests.createModel(
                 "id",
                 getUrl(webServer),
-                AzureAiStudioProvider.OPENAI,
-                AzureAiStudioEndpointType.TOKEN,
+                DEFAULT_DEPLOYMENT_TYPE,
+                DEFAULT_MODEL,
                 "apikey"
             );
             var listener = new PlainActionFuture<InferenceServiceResults>();
@@ -1370,18 +1361,18 @@ public class AzureAiStudioServiceTests extends ESTestCase {
                     "name": "Azure AI Studio",
                     "task_types": ["text_embedding", "completion"],
                     "configurations": {
-                        "endpoint_type": {
+                        "deployment_type": {
                             "description": "Specifies the type of endpoint that is used in your model deployment.",
-                            "label": "Endpoint Type",
+                            "label": "Deployment Type",
                             "required": true,
                             "sensitive": false,
                             "updatable": false,
                             "type": "str"
                         },
-                        "provider": {
-                            "description": "The model provider for your deployment.",
-                            "label": "Provider",
-                            "required": true,
+                        "model": {
+                            "description": "The model name used for your deployment.",
+                            "label": "Model",
+                            "required": false,
                             "sensitive": false,
                             "updatable": false,
                             "type": "str"
@@ -1470,7 +1461,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
     private static Map<String, Object> getEmbeddingsServiceSettingsMap(
         String target,
         String deploymentType,
-        @Nullable String deploymentName,
+        @Nullable String model,
         @Nullable Integer dimensions,
         @Nullable Boolean dimensionsSetByUser,
         @Nullable Integer maxTokens,
@@ -1479,7 +1470,7 @@ public class AzureAiStudioServiceTests extends ESTestCase {
         return AzureAiStudioEmbeddingsServiceSettingsTests.createRequestSettingsMap(
             target,
             deploymentType,
-            deploymentName,
+            model,
             dimensions,
             dimensionsSetByUser,
             maxTokens,
@@ -1491,17 +1482,17 @@ public class AzureAiStudioServiceTests extends ESTestCase {
         return AzureAiStudioEmbeddingsTaskSettingsTests.getTaskSettingsMap(user);
     }
 
-    private static HashMap<String, Object> getChatCompletionServiceSettingsMap(String target, String deploymentType, String deploymentName) {
-        return AzureAiStudioChatCompletionServiceSettingsTests.createRequestSettingsMap(target, deploymentType, deploymentName);
+    private static HashMap<String, Object> getChatCompletionServiceSettingsMap(String target, String deploymentType, String model) {
+        return AzureAiStudioChatCompletionServiceSettingsTests.createRequestSettingsMap(target, deploymentType, model);
     }
 
     public static Map<String, Object> getChatCompletionTaskSettingsMap(
         @Nullable Double temperature,
         @Nullable Double topP,
         @Nullable Boolean doSample,
-        @Nullable Integer maxNewTokens
+        @Nullable Integer maxTokens
     ) {
-        return AzureAiStudioChatCompletionTaskSettingsTests.getTaskSettingsMap(temperature, topP, doSample, maxNewTokens);
+        return AzureAiStudioChatCompletionTaskSettingsTests.getTaskSettingsMap(temperature, topP, doSample, maxTokens);
     }
 
     private static Map<String, Object> getSecretSettingsMap(String apiKey) {

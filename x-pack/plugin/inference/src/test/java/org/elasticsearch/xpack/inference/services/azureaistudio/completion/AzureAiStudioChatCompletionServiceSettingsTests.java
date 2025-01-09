@@ -24,8 +24,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_NAME_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_TYPE_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MODEL_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TARGET_FIELD;
 import static org.hamcrest.Matchers.is;
 
@@ -34,26 +34,26 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
     public void testFromMap_Request_CreatesSettingsCorrectly() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
+        var model = "test-model";
 
         var serviceSettings = AzureAiStudioChatCompletionServiceSettings.fromMap(
-            createRequestSettingsMap(target, deploymentType, deploymentName),
+            createRequestSettingsMap(target, deploymentType, model),
             ConfigurationParseContext.REQUEST
         );
 
         assertThat(
             serviceSettings,
             is(new AzureAiStudioChatCompletionServiceSettings(
-                target, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-deployment", null))
+                target, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, model, null))
         );
     }
 
     public void testFromMap_RequestWithRateLimit_CreatesSettingsCorrectly() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
+        var model = "test-model";
 
-        var settingsMap = createRequestSettingsMap(target, deploymentType, deploymentName);
+        var settingsMap = createRequestSettingsMap(target, deploymentType, model);
         settingsMap.put(RateLimitSettings.FIELD_NAME, new HashMap<>(Map.of(RateLimitSettings.REQUESTS_PER_MINUTE_FIELD, 3)));
 
         var serviceSettings = AzureAiStudioChatCompletionServiceSettings.fromMap(settingsMap, ConfigurationParseContext.REQUEST);
@@ -64,7 +64,7 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
                 new AzureAiStudioChatCompletionServiceSettings(
                     target,
                     AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-                    "test-deployment",
+                    model,
                     new RateLimitSettings(3)
                 )
             )
@@ -74,17 +74,17 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
     public void testFromMap_Persistent_CreatesSettingsCorrectly() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
+        var model = "test-model";
 
         var serviceSettings = AzureAiStudioChatCompletionServiceSettings.fromMap(
-            createRequestSettingsMap(target, deploymentType, deploymentName),
+            createRequestSettingsMap(target, deploymentType, model),
             ConfigurationParseContext.PERSISTENT
         );
 
         assertThat(
             serviceSettings,
             is(new AzureAiStudioChatCompletionServiceSettings(
-                target, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-deployment", null))
+                target, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, model, null))
         );
     }
 
@@ -92,7 +92,7 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
         var settings = new AzureAiStudioChatCompletionServiceSettings(
             "target_value",
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            "test-model",
             new RateLimitSettings(3)
         );
         XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
@@ -100,7 +100,7 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, CoreMatchers.is("""
-            {"target":"target_value","provider":"openai","endpoint_type":"token",""" + """
+            {"target":"target_value","deployment_type":"azure_ai_model_inference_service","model":"test-model",""" + """
             "rate_limit":{"requests_per_minute":3}}"""));
     }
 
@@ -108,7 +108,7 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
         var settings = new AzureAiStudioChatCompletionServiceSettings(
             "target_value",
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            "test-model",
             new RateLimitSettings(3)
         );
         XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
@@ -117,12 +117,12 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, CoreMatchers.is("""
-            {"target":"target_value","provider":"openai","endpoint_type":"token",""" + """
+            {"target":"target_value","deployment_type":"azure_ai_model_inference_service","model":"test-model",""" + """
             "rate_limit":{"requests_per_minute":3}}"""));
     }
 
-    public static HashMap<String, Object> createRequestSettingsMap(String target, String deploymentType, String deploymentName) {
-        return new HashMap<>(Map.of(TARGET_FIELD, target, DEPLOYMENT_TYPE_FIELD, deploymentType, DEPLOYMENT_NAME_FIELD, deploymentName));
+    public static HashMap<String, Object> createRequestSettingsMap(String target, String deploymentType, String model) {
+        return new HashMap<>(Map.of(TARGET_FIELD, target, DEPLOYMENT_TYPE_FIELD, deploymentType, MODEL_FIELD, model));
     }
 
     @Override

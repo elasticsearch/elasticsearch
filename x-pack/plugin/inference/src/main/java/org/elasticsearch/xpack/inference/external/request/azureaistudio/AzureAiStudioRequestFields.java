@@ -10,14 +10,10 @@ package org.elasticsearch.xpack.inference.external.request.azureaistudio;
 public final class AzureAiStudioRequestFields {
     public static final String API_KEY_HEADER = "api-key";
     public static final String MESSAGES_ARRAY = "messages";
-    public static final String INPUT_DATA_OBJECT = "input_data";
-    public static final String INPUT_STRING_ARRAY = "input_string";
-    public static final String PARAMETERS_OBJECT = "parameters";
     public static final String MESSAGE_CONTENT = "content";
     public static final String ROLE = "role";
     public static final String USER_ROLE = "user";
     public static final String STREAM = "stream";
-    public static final String DEPLOYMENT_NAME = "model";
 
     private AzureAiStudioRequestFields() {}
 }

@@ -21,9 +21,8 @@ import static org.elasticsearch.xpack.inference.external.request.azureaistudio.A
 import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.ROLE;
 import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.STREAM;
 import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.USER_ROLE;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_NAME_REQUEST_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MODEL_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DO_SAMPLE_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_NEW_TOKENS_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_TOKENS_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TEMPERATURE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TOP_P_FIELD;
@@ -31,11 +30,11 @@ import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiSt
 public record AzureAiStudioChatCompletionRequestEntity(
     List<String> messages,
     AzureAiStudioDeploymentType deploymentType,
-    @Nullable String deploymentName,
+    @Nullable String model,
     @Nullable Double temperature,
     @Nullable Double topP,
     @Nullable Boolean doSample,
-    @Nullable Integer maxNewTokens,
+    @Nullable Integer maxTokens,
     boolean stream
 ) implements ToXContentObject {
 
@@ -49,7 +48,7 @@ public record AzureAiStudioChatCompletionRequestEntity(
         builder.startObject();
 
         if (deploymentType == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE) {
-            builder.field(DEPLOYMENT_NAME_REQUEST_FIELD, deploymentName);
+            builder.field(MODEL_FIELD, model);
         }
 
         if (stream) {
@@ -81,7 +80,7 @@ public record AzureAiStudioChatCompletionRequestEntity(
     }
 
     private void addRequestParameters(XContentBuilder builder) throws IOException {
-        if (temperature == null && topP == null && doSample == null && maxNewTokens == null) {
+        if (temperature == null && topP == null && doSample == null && maxTokens == null) {
             return;
         }
 
@@ -97,8 +96,8 @@ public record AzureAiStudioChatCompletionRequestEntity(
             builder.field(DO_SAMPLE_FIELD, doSample);
         }
 
-        if (maxNewTokens != null) {
-            builder.field(MAX_TOKENS_FIELD, maxNewTokens);
+        if (maxTokens != null) {
+            builder.field(MAX_TOKENS_FIELD, maxTokens);
         }
 
     }

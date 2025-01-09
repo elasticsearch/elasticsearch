@@ -33,7 +33,7 @@ public abstract class AzureAiStudioModel extends Model {
     protected String target;
     protected URI uri;
     protected AzureAiStudioDeploymentType deploymentType;
-    protected String deploymentName;
+    protected String model;
     protected RateLimitSettings rateLimitSettings;
 
     public AzureAiStudioModel(AzureAiStudioModel model, TaskSettings taskSettings, RateLimitSettings rateLimitSettings) {
@@ -56,9 +56,9 @@ public abstract class AzureAiStudioModel extends Model {
         this.target = serviceSettings.target;
         this.deploymentType = serviceSettings.deploymentType;
         if (serviceSettings.deploymentType == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE) {
-            this.deploymentName = serviceSettings.deploymentName;
+            this.model = serviceSettings.model;
         } else {
-            this.deploymentName = null;
+            this.model = null;
         }
         this.rateLimitSettings = serviceSettings.rateLimitSettings();
         try {
@@ -78,8 +78,8 @@ public abstract class AzureAiStudioModel extends Model {
         return this.deploymentType;
     }
 
-    public String deploymentName() {
-        return this.deploymentName;
+    public String model() {
+        return this.model;
     }
 
     public RateLimitSettings rateLimitSettings() {

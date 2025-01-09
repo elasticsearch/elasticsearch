@@ -14,17 +14,10 @@ import org.elasticsearch.xpack.inference.external.response.BaseResponseEntity;
 import org.elasticsearch.xpack.inference.external.response.openai.OpenAiEmbeddingsResponseEntity;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
 public class AzureAiStudioEmbeddingsResponseEntity extends BaseResponseEntity {
     @Override
     protected InferenceServiceResults fromResponse(Request request, HttpResult response) throws IOException {
-        // expected response type is the same as the Open AI Embeddings
-//        var stringResponse = response.response().toString();
-//        var stringResponseBody = new String(response.body(), StandardCharsets.UTF_8);
-//        System.out.println(stringResponse);
-//        System.out.println(stringResponseBody);
         return OpenAiEmbeddingsResponseEntity.fromResponse(request, response);
     }
 }

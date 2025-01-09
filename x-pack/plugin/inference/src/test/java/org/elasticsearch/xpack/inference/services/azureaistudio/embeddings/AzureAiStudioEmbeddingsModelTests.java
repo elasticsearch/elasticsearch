@@ -14,12 +14,9 @@ import org.elasticsearch.inference.SimilarityMeasure;
 import org.elasticsearch.inference.TaskType;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
+
 import org.elasticsearch.xpack.inference.services.settings.DefaultSecretSettings;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettings;
-
-import java.net.URISyntaxException;
 
 import static org.elasticsearch.xpack.inference.services.azureaistudio.embeddings.AzureAiStudioEmbeddingsTaskSettingsTests.getTaskSettingsMap;
 import static org.hamcrest.Matchers.is;
@@ -27,12 +24,15 @@ import static org.hamcrest.Matchers.sameInstance;
 
 public class AzureAiStudioEmbeddingsModelTests extends ESTestCase {
 
+    private static final AzureAiStudioDeploymentType DEFAULT_DEPLOYMENT_TYPE = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE;
+    private static final String DEFAULT_MODEL = "test-model";
+
     public void testOverrideWith_OverridesUser() {
         var model = createModel(
             "id",
             "http://testtarget.local",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_DEPLOYMENT_TYPE,
+            DEFAULT_MODEL,
             "apikey",
             null,
             false,
@@ -42,7 +42,7 @@ public class AzureAiStudioEmbeddingsModelTests extends ESTestCase {
             null
         );
 
-        var requestTaskSettingsMap = getTaskSettingsMap("override_user");
+        var requestTaskSettingsMap = getTaskSettingsMap(null);
         var overriddenModel = AzureAiStudioEmbeddingsModel.of(model, requestTaskSettingsMap);
 
         assertThat(
@@ -51,14 +51,14 @@ public class AzureAiStudioEmbeddingsModelTests extends ESTestCase {
                 createModel(
                     "id",
                     "http://testtarget.local",
-                    AzureAiStudioProvider.OPENAI,
-                    AzureAiStudioEndpointType.TOKEN,
+                    DEFAULT_DEPLOYMENT_TYPE,
+                    DEFAULT_MODEL,
                     "apikey",
                     null,
                     false,
                     null,
                     null,
-                    "override_user",
+                    null,
                     null
                 )
             )
@@ -69,8 +69,8 @@ public class AzureAiStudioEmbeddingsModelTests extends ESTestCase {
         var model = createModel(
             "id",
             "http://testtarget.local",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_DEPLOYMENT_TYPE,
+            DEFAULT_MODEL,
             "apikey",
             null,
             false,
@@ -86,41 +86,32 @@ public class AzureAiStudioEmbeddingsModelTests extends ESTestCase {
         assertThat(overriddenModel, sameInstance(overriddenModel));
     }
 
-    public void testSetsProperUrlForOpenAIModel() throws URISyntaxException {
-        var model = createModel("id", "http://testtarget.local", AzureAiStudioProvider.OPENAI, AzureAiStudioEndpointType.TOKEN, "apikey");
-        assertThat(model.getEndpointUri().toString(), is("http://testtarget.local"));
-    }
-
-    public void testSetsProperUrlForCohereModel() throws URISyntaxException {
-        var model = createModel("id", "http://testtarget.local", AzureAiStudioProvider.COHERE, AzureAiStudioEndpointType.TOKEN, "apikey");
-        assertThat(model.getEndpointUri().toString(), is("http://testtarget.local/v1/embeddings"));
-    }
-
     public static AzureAiStudioEmbeddingsModel createModel(
         String inferenceId,
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        @Nullable String model,
         String apiKey
     ) {
-        return createModel(inferenceId, target, provider, endpointType, apiKey, null, false, null, null, null, null);
+        return createModel(inferenceId, target, deploymentType, model, apiKey, null, false, null, null, null, null);
     }
 
     public static AzureAiStudioEmbeddingsModel createModel(
         String inferenceId,
         String target,
         AzureAiStudioDeploymentType deploymentType,
+        @Nullable String model,
         ChunkingSettings chunkingSettings,
         String apiKey
     ) {
-        return createModel(inferenceId, target, deploymentType, chunkingSettings, apiKey, null, false, null, null, null, null);
+        return createModel(inferenceId, target, deploymentType, model, chunkingSettings, apiKey, null, false, null, null, null, null);
     }
 
     public static AzureAiStudioEmbeddingsModel createModel(
         String inferenceId,
         String target,
         AzureAiStudioDeploymentType deploymentType,
-        @Nullable String deploymentName,
+        @Nullable String model,
         ChunkingSettings chunkingSettings,
         String apiKey,
         @Nullable Integer dimensions,
@@ -137,7 +128,7 @@ public class AzureAiStudioEmbeddingsModelTests extends ESTestCase {
             new AzureAiStudioEmbeddingsServiceSettings(
                 target,
                 deploymentType,
-                deploymentName,
+                model,
                 dimensions,
                 dimensionsSetByUser,
                 maxTokens,
@@ -154,7 +145,7 @@ public class AzureAiStudioEmbeddingsModelTests extends ESTestCase {
         String inferenceId,
         String target,
         AzureAiStudioDeploymentType deploymentType,
-        @Nullable String deploymentName,
+        @Nullable String model,
         String apiKey,
         @Nullable Integer dimensions,
         boolean dimensionsSetByUser,
@@ -170,7 +161,7 @@ public class AzureAiStudioEmbeddingsModelTests extends ESTestCase {
             new AzureAiStudioEmbeddingsServiceSettings(
                 target,
                 deploymentType,
-                deploymentName,
+                model,
                 dimensions,
                 dimensionsSetByUser,
                 maxTokens,

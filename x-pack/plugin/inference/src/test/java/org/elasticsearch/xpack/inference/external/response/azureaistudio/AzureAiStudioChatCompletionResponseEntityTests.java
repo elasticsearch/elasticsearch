@@ -12,8 +12,7 @@ import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.xpack.core.inference.results.ChatCompletionResults;
 import org.elasticsearch.xpack.inference.external.http.HttpResult;
 import org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioChatCompletionRequest;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
+import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
 import org.elasticsearch.xpack.inference.services.azureaistudio.completion.AzureAiStudioChatCompletionModelTests;
 
 import java.io.IOException;
@@ -26,51 +25,45 @@ import static org.mockito.Mockito.mock;
 
 public class AzureAiStudioChatCompletionResponseEntityTests extends ESTestCase {
 
-    public void testCompletionResponse_FromTokenEndpoint() throws IOException {
+    public void testCompletionResponse_FromModelInferenceServiceDeployment() throws IOException {
         var entity = new AzureAiStudioChatCompletionResponseEntity();
         var model = AzureAiStudioChatCompletionModelTests.createModel(
             "id",
-            "http://testopenai.local",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            "http://target.local",
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+            "test-model",
             "apikey"
         );
         var request = new AzureAiStudioChatCompletionRequest(model, List.of("test input"), false);
         var result = (ChatCompletionResults) entity.apply(
             request,
-            new HttpResult(mock(HttpResponse.class), testTokenResponseJson.getBytes(StandardCharsets.UTF_8))
+            new HttpResult(mock(HttpResponse.class), testResponseJson.getBytes(StandardCharsets.UTF_8))
         );
 
         assertThat(result.getResults().size(), equalTo(1));
         assertThat(result.getResults().get(0).content(), is("test input string"));
     }
 
-    public void testCompletionResponse_FromRealtimeEndpoint() throws IOException {
+    public void testCompletionResponse_FromServerlessDeployment() throws IOException {
         var entity = new AzureAiStudioChatCompletionResponseEntity();
         var model = AzureAiStudioChatCompletionModelTests.createModel(
             "id",
-            "http://testmistral.local",
-            AzureAiStudioProvider.MISTRAL,
-            AzureAiStudioEndpointType.REALTIME,
+            "http://target.local",
+            AzureAiStudioDeploymentType.SERVERLESS_API,
+            null,
             "apikey"
         );
         var request = new AzureAiStudioChatCompletionRequest(model, List.of("test input"), false);
         var result = (ChatCompletionResults) entity.apply(
             request,
-            new HttpResult(mock(HttpResponse.class), testRealtimeResponseJson.getBytes(StandardCharsets.UTF_8))
+            new HttpResult(mock(HttpResponse.class), testResponseJson.getBytes(StandardCharsets.UTF_8))
         );
 
         assertThat(result.getResults().size(), equalTo(1));
-        assertThat(result.getResults().get(0).content(), is("test realtime response"));
+        assertThat(result.getResults().get(0).content(), is("test input string"));
     }
 
-    private static String testRealtimeResponseJson = """
-        {
-            "output": "test realtime response"
-        }
-        """;
-
-    private static String testTokenResponseJson = """
+    private static final String testResponseJson = """
         {
             "choices": [
                 {

@@ -53,10 +53,10 @@ public class AzureAiStudioChatCompletionServiceSettings extends AzureAiStudioSer
     public AzureAiStudioChatCompletionServiceSettings(
         String target,
         AzureAiStudioDeploymentType deploymentType,
-        @Nullable String deploymentName,
+        @Nullable String model,
         @Nullable RateLimitSettings rateLimitSettings
     ) {
-        super(target, deploymentType, deploymentName, rateLimitSettings);
+        super(target, deploymentType, model, rateLimitSettings);
     }
 
     public AzureAiStudioChatCompletionServiceSettings(StreamInput in) throws IOException {
@@ -67,7 +67,7 @@ public class AzureAiStudioChatCompletionServiceSettings extends AzureAiStudioSer
         this(
             fields.baseCommonFields.target(),
             fields.baseCommonFields.deploymentType(),
-            fields.baseCommonFields.deploymentName(),
+            fields.baseCommonFields.model(),
             fields.baseCommonFields.rateLimitSettings()
         );
     }
@@ -111,12 +111,12 @@ public class AzureAiStudioChatCompletionServiceSettings extends AzureAiStudioSer
 
         return Objects.equals(target, that.target)
             && Objects.equals(deploymentType, that.deploymentType)
-            && Objects.equals(deploymentName, that.deploymentName)
+            && Objects.equals(model, that.model)
             && Objects.equals(rateLimitSettings, that.rateLimitSettings);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(target, deploymentType, deploymentName, rateLimitSettings);
+        return Objects.hash(target, deploymentType, model, rateLimitSettings);
     }
 }

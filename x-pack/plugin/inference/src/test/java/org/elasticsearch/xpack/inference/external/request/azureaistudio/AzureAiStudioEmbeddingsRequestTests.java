@@ -15,10 +15,7 @@ import org.elasticsearch.xcontent.XContentType;
 import org.elasticsearch.xpack.inference.common.Truncator;
 import org.elasticsearch.xpack.inference.common.TruncatorTests;
 import org.elasticsearch.xpack.inference.external.request.HttpRequest;
-import org.elasticsearch.xpack.inference.external.request.RequestUtils;
 import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
 import org.elasticsearch.xpack.inference.services.azureaistudio.embeddings.AzureAiStudioEmbeddingsModelTests;
 
 import java.io.IOException;
@@ -32,87 +29,54 @@ import static org.hamcrest.Matchers.is;
 
 public class AzureAiStudioEmbeddingsRequestTests extends ESTestCase {
 
-    public static final String embeddingsTarget = "http://target.local/embeddings";
+
+    private static final String DEFAULT_TARGET = "http://target.local/embeddings";
+    private static final String DEFAULT_MODEL = "test-model";
 
     public void testCreateRequest_WithModelInferenceServiceDeployment_NoAdditionalParams() throws IOException {
         var request = createRequest(
-            embeddingsTarget,
+            DEFAULT_TARGET,
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             "apikey",
             "abcd",
             null
         );
         var httpRequest = request.createHttpRequest();
-        var httpPost = validateRequestUrlAndContentType(httpRequest, embeddingsTarget);
-        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "apikey");
-
-        var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(1));
-        assertThat(requestMap.get("input"), is(List.of("abcd")));
-    }
-
-    public void testCreateRequest_WithModelInferenceServiceDeployment_WithUserParam() throws IOException {
-        var request = createRequest(
-            embeddingsTarget,
-            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
-            "apikey",
-            "abcd",
-            "userid"
-        );
-        var httpRequest = request.createHttpRequest();
-        var httpPost = validateRequestUrlAndContentType(httpRequest, embeddingsTarget);
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
         validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
         assertThat(requestMap, aMapWithSize(2));
         assertThat(requestMap.get("input"), is(List.of("abcd")));
-        assertThat(requestMap.get("user"), is("userid"));
+        assertThat(requestMap.get("model"), is(DEFAULT_MODEL));
     }
 
     public void testCreateRequest_WithServerlessDeployment_NoAdditionalParams() throws IOException {
         var request = createRequest(
-            embeddingsTarget,
-            AzureAiStudioDeploymentType.SERVERLESS_API,
-            "test-deployment",
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+            DEFAULT_MODEL,
             "apikey",
             "abcd",
             null
         );
-        var httpRequest = request.createHttpRequest();
-        var httpPost = validateRequestUrlAndContentType(httpRequest, embeddingsTarget);
-        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.SERVERLESS_API, "apikey");
 
-        var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(1));
-        assertThat(requestMap.get("input"), is(List.of("abcd")));
-    }
-
-    public void testCreateRequest_WithServerlessDeployment_WithUserParam() throws IOException {
-        var request = createRequest(
-            embeddingsTarget,
-            AzureAiStudioDeploymentType.SERVERLESS_API,
-            "test-deployment",
-            "apikey",
-            "abcd",
-            "userid"
-        );
         var httpRequest = request.createHttpRequest();
-        var httpPost = validateRequestUrlAndContentType(httpRequest, embeddingsTarget);
-        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.SERVERLESS_API, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
         assertThat(requestMap, aMapWithSize(2));
         assertThat(requestMap.get("input"), is(List.of("abcd")));
-        assertThat(requestMap.get("user"), is("userid"));
+        assertThat(requestMap.get("model"), is(DEFAULT_MODEL));
     }
 
     public void testTruncate_ReducesInputTextSizeByHalf() throws IOException {
         var request = createRequest(
-            embeddingsTarget,
+            DEFAULT_TARGET,
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             "apikey",
             "abcd",
             null
@@ -124,15 +88,16 @@ public class AzureAiStudioEmbeddingsRequestTests extends ESTestCase {
 
         var httpPost = (HttpPost) httpRequest.httpRequestBase();
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(1));
+        assertThat(requestMap, aMapWithSize(2));
         assertThat(requestMap.get("input"), is(List.of("ab")));
+        assertThat(requestMap.get("model"), is(DEFAULT_MODEL));
     }
 
     public void testIsTruncated_ReturnsTrue() {
         var request = createRequest(
-            embeddingsTarget,
+            DEFAULT_TARGET,
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             "apikey",
             "abcd",
             null
@@ -143,7 +108,7 @@ public class AzureAiStudioEmbeddingsRequestTests extends ESTestCase {
         assertTrue(truncatedRequest.getTruncationInfo()[0]);
     }
 
-    private HttpPost validateRequestUrlAndContentType(HttpRequest request, String expectedUrl) throws IOException {
+    private HttpPost validateRequestUrlAndContentType(HttpRequest request, String expectedUrl) {
         assertThat(request.httpRequestBase(), instanceOf(HttpPost.class));
         var httpPost = (HttpPost) request.httpRequestBase();
         assertThat(httpPost.getURI().toString(), is(expectedUrl));
@@ -154,8 +119,10 @@ public class AzureAiStudioEmbeddingsRequestTests extends ESTestCase {
     private void validateRequestApiKey(HttpPost httpPost, AzureAiStudioDeploymentType deploymentType, String apiKey) {
         if (deploymentType == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE) {
             assertThat(httpPost.getLastHeader(API_KEY_HEADER).getValue(), is(apiKey));
-        } else {
+        } else if (deploymentType == AzureAiStudioDeploymentType.SERVERLESS_API) {
             assertThat(httpPost.getLastHeader(HttpHeaders.AUTHORIZATION).getValue(), is(apiKey));
+        } else {
+            fail("Invalid deployment type");
         }
     }
 

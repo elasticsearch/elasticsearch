@@ -16,7 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DO_SAMPLE_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_NEW_TOKENS_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_TOKENS_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TEMPERATURE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TOP_P_FIELD;
 import static org.hamcrest.Matchers.containsString;
@@ -48,9 +48,9 @@ public class AzureAiStudioChatCompletionRequestTaskSettingsTests extends ESTestC
         assertThat(settings.doSample(), is(true));
     }
 
-    public void testFromMap_ReturnsMaxNewTokens() {
-        var settings = AzureAiStudioChatCompletionRequestTaskSettings.fromMap(new HashMap<>(Map.of(MAX_NEW_TOKENS_FIELD, 512)));
-        assertThat(settings.maxNewTokens(), is(512));
+    public void testFromMap_ReturnsMaxTokens() {
+        var settings = AzureAiStudioChatCompletionRequestTaskSettings.fromMap(new HashMap<>(Map.of(MAX_TOKENS_FIELD, 512)));
+        assertThat(settings.maxTokens(), is(512));
     }
 
     public void testFromMap_TemperatureIsInvalidValue_ThrowsValidationException() {
@@ -96,12 +96,12 @@ public class AzureAiStudioChatCompletionRequestTaskSettingsTests extends ESTestC
     public void testFromMap_MaxTokensIsInvalidValue_ThrowsStatusException() {
         var thrownException = expectThrows(
             ValidationException.class,
-            () -> AzureAiStudioChatCompletionRequestTaskSettings.fromMap(new HashMap<>(Map.of(MAX_NEW_TOKENS_FIELD, "invalid")))
+            () -> AzureAiStudioChatCompletionRequestTaskSettings.fromMap(new HashMap<>(Map.of(MAX_TOKENS_FIELD, "invalid")))
         );
 
         MatcherAssert.assertThat(
             thrownException.getMessage(),
-            containsString("field [max_new_tokens] is not of the expected type. The value [invalid] cannot be converted to a [Integer]")
+            containsString("field [max_tokens] is not of the expected type. The value [invalid] cannot be converted to a [Integer]")
         );
     }
 

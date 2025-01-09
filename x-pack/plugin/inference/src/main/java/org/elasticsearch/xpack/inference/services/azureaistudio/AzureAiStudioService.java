@@ -60,10 +60,10 @@ import static org.elasticsearch.xpack.inference.services.ServiceUtils.removeFrom
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.removeFromMapOrThrowIfNull;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.throwIfNotEmptyMap;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.throwUnsupportedUnifiedCompletionOperation;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_NAME_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MODEL_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_TYPE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TARGET_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.completion.AzureAiStudioChatCompletionTaskSettings.DEFAULT_MAX_NEW_TOKENS;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.completion.AzureAiStudioChatCompletionTaskSettings.DEFAULT_MAX_TOKENS;
 import static org.elasticsearch.xpack.inference.services.openai.OpenAiServiceFields.EMBEDDING_MAX_BATCH_SIZE;
 
 public class AzureAiStudioService extends SenderService {
@@ -268,9 +268,9 @@ public class AzureAiStudioService extends SenderService {
                 secretSettings,
                 context
             );
-            checkDeploymentTypeAndName(
+            checkDeploymentTypeAndModel(
                 embeddingsModel.getServiceSettings().deploymentType(),
-                embeddingsModel.getServiceSettings().deploymentName()
+                embeddingsModel.getServiceSettings().model()
             );
             return embeddingsModel;
         }
@@ -284,6 +284,10 @@ public class AzureAiStudioService extends SenderService {
                 taskSettings,
                 secretSettings,
                 context
+            );
+            checkDeploymentTypeAndModel(
+                completionModel.getServiceSettings().deploymentType(),
+                completionModel.getServiceSettings().model()
             );
             return completionModel;
         }
@@ -328,7 +332,7 @@ public class AzureAiStudioService extends SenderService {
             var updatedServiceSettings = new AzureAiStudioEmbeddingsServiceSettings(
                 serviceSettings.target(),
                 serviceSettings.deploymentType(),
-                serviceSettings.deploymentName(),
+                serviceSettings.model(),
                 embeddingSize,
                 serviceSettings.dimensionsSetByUser(),
                 serviceSettings.maxInputTokens(),
@@ -346,14 +350,14 @@ public class AzureAiStudioService extends SenderService {
     public Model updateModelWithChatCompletionDetails(Model model) {
         if (model instanceof AzureAiStudioChatCompletionModel chatCompletionModel) {
             var taskSettings = chatCompletionModel.getTaskSettings();
-            var modelMaxNewTokens = taskSettings.maxNewTokens();
-            var maxNewTokensToUse = modelMaxNewTokens == null ? DEFAULT_MAX_NEW_TOKENS : modelMaxNewTokens;
+            var modelMaxTokens = taskSettings.maxTokens();
+            var maxTokensToUse = modelMaxTokens == null ? DEFAULT_MAX_TOKENS : modelMaxTokens;
 
             var updatedTaskSettings = new AzureAiStudioChatCompletionTaskSettings(
                 taskSettings.temperature(),
                 taskSettings.topP(),
                 taskSettings.doSample(),
-                maxNewTokensToUse
+                maxTokensToUse
             );
 
             return new AzureAiStudioChatCompletionModel(chatCompletionModel, updatedTaskSettings);
@@ -362,12 +366,12 @@ public class AzureAiStudioService extends SenderService {
         }
     }
 
-    private static void checkDeploymentTypeAndName(AzureAiStudioDeploymentType deploymentType, String deploymentName) {
+    private static void checkDeploymentTypeAndModel(AzureAiStudioDeploymentType deploymentType, String model) {
 
-        if (deploymentType == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE && deploymentName == null) {
+        if (deploymentType == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE && model == null) {
             throw new ElasticsearchStatusException(
                 Strings.format(
-                    "A deployment name is required for deployments of type [%s].",
+                    "A model is required for deployments of type [%s].",
                     deploymentType
                 ),
                 RestStatus.BAD_REQUEST
@@ -408,13 +412,14 @@ public class AzureAiStudioService extends SenderService {
                 );
 
                 configurationMap.put(
-                    DEPLOYMENT_NAME_FIELD,
+                    MODEL_FIELD,
                     new SettingsConfiguration.Builder()
-                        .setDescription("The name for your deployment.")
-                        .setLabel("Deployment Name")
-                        .setRequired(true)
+                        .setDescription("The model name used for your deployment.")
+                        .setLabel("Model")
+                        .setRequired(false)
                         .setSensitive(false)
                         .setUpdatable(false)
+                        .setType(SettingsConfigurationFieldType.STRING)
                         .build()
                 );
 

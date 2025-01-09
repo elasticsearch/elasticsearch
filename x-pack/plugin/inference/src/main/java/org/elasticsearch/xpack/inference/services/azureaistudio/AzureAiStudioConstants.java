@@ -12,7 +12,7 @@ public class AzureAiStudioConstants {
     // common service settings fields
     public static final String TARGET_FIELD = "target";
     public static final String DEPLOYMENT_TYPE_FIELD = "deployment_type";
-    public static final String DEPLOYMENT_NAME_FIELD = "deployment_name";
+    public static final String MODEL_FIELD = "model";
     public static final String API_KEY_FIELD = "api_key";
 
     // embeddings service and request settings
@@ -31,9 +31,6 @@ public class AzureAiStudioConstants {
 
     public static final Double MIN_TEMPERATURE_TOP_P = 0.0;
     public static final Double MAX_TEMPERATURE_TOP_P = 2.0;
-
-    // request-specific fields
-    public static final String DEPLOYMENT_NAME_REQUEST_FIELD = "model";
 
     private AzureAiStudioConstants() {}
 }

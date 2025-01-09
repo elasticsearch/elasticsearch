@@ -21,8 +21,6 @@ import org.elasticsearch.xpack.inference.services.ConfigurationParseContext;
 import org.elasticsearch.xpack.inference.services.ServiceFields;
 import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants;
 import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettings;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettingsTests;
 import org.hamcrest.CoreMatchers;
@@ -39,14 +37,15 @@ import static org.hamcrest.Matchers.is;
 public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWireSerializationTestCase<
     AzureAiStudioEmbeddingsServiceSettings> {
 
+    private static final String DEFAULT_MODEL = "test-model";
+
     public void testFromMap_Request_CreatesSettingsCorrectly() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
         var dims = 1536;
         var maxInputTokens = 512;
         var serviceSettings = AzureAiStudioEmbeddingsServiceSettings.fromMap(
-            createRequestSettingsMap(target, deploymentType, deploymentName, dims, null, maxInputTokens, SimilarityMeasure.COSINE),
+            createRequestSettingsMap(target, deploymentType, DEFAULT_MODEL, dims, null, maxInputTokens, SimilarityMeasure.COSINE),
             ConfigurationParseContext.REQUEST
         );
 
@@ -56,7 +55,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
                 new AzureAiStudioEmbeddingsServiceSettings(
                     target,
                     AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-                    "test-deployment",
+                    DEFAULT_MODEL,
                     dims,
                     true,
                     maxInputTokens,
@@ -70,11 +69,10 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     public void testFromMap_RequestWithRateLimit_CreatesSettingsCorrectly() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
         var dims = 1536;
         var maxInputTokens = 512;
         var settingsMap = createRequestSettingsMap(
-            target, deploymentType, deploymentName, dims, null, maxInputTokens, SimilarityMeasure.COSINE);
+            target, deploymentType, DEFAULT_MODEL, dims, null, maxInputTokens, SimilarityMeasure.COSINE);
         settingsMap.put(RateLimitSettings.FIELD_NAME, new HashMap<>(Map.of(RateLimitSettings.REQUESTS_PER_MINUTE_FIELD, 3)));
 
         var serviceSettings = AzureAiStudioEmbeddingsServiceSettings.fromMap(settingsMap, ConfigurationParseContext.REQUEST);
@@ -85,7 +83,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
                 new AzureAiStudioEmbeddingsServiceSettings(
                     target,
                     AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-                    "test-deployment",
+                    DEFAULT_MODEL,
                     dims,
                     true,
                     maxInputTokens,
@@ -99,10 +97,9 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     public void testFromMap_Request_DimensionsSetByUser_IsFalse_WhenDimensionsAreNotPresent() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
         var maxInputTokens = 512;
         var settingsMap = createRequestSettingsMap(
-            target, deploymentType, deploymentName, null, null, maxInputTokens, SimilarityMeasure.COSINE);
+            target, deploymentType, DEFAULT_MODEL, null, null, maxInputTokens, SimilarityMeasure.COSINE);
         var serviceSettings = AzureAiStudioEmbeddingsServiceSettings.fromMap(settingsMap, ConfigurationParseContext.REQUEST);
 
         assertThat(
@@ -111,7 +108,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
                 new AzureAiStudioEmbeddingsServiceSettings(
                     target,
                     AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-                    "test-deployment",
+                    DEFAULT_MODEL,
                     null,
                     false,
                     maxInputTokens,
@@ -125,11 +122,10 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     public void testFromMap_Request_DimensionsSetByUser_ShouldThrowWhenPresent() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
         var maxInputTokens = 512;
 
         var settingsMap = createRequestSettingsMap(
-            target, deploymentType, deploymentName, null, true, maxInputTokens, SimilarityMeasure.COSINE);
+            target, deploymentType, DEFAULT_MODEL, null, true, maxInputTokens, SimilarityMeasure.COSINE);
 
         var thrownException = expectThrows(
             ValidationException.class,
@@ -150,12 +146,11 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     public void testFromMap_Persistent_CreatesSettingsCorrectly() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
         var dims = 1536;
         var maxInputTokens = 512;
 
         var settingsMap = createRequestSettingsMap(
-            target, deploymentType, deploymentName, dims, false, maxInputTokens, SimilarityMeasure.COSINE);
+            target, deploymentType, DEFAULT_MODEL, dims, false, maxInputTokens, SimilarityMeasure.COSINE);
         var serviceSettings = AzureAiStudioEmbeddingsServiceSettings.fromMap(settingsMap, ConfigurationParseContext.PERSISTENT);
 
         assertThat(
@@ -164,7 +159,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
                 new AzureAiStudioEmbeddingsServiceSettings(
                     target,
                     AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-                    "test-deployment",
+                    DEFAULT_MODEL,
                     dims,
                     false,
                     maxInputTokens,
@@ -178,11 +173,10 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     public void testFromMap_ThrowsException_WhenDimensionsAreZero() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
         var dimensions = 0;
 
         var settingsMap = createRequestSettingsMap(
-            target, deploymentType, deploymentName, dimensions, true, null, SimilarityMeasure.COSINE);
+            target, deploymentType, DEFAULT_MODEL, dimensions, true, null, SimilarityMeasure.COSINE);
 
         var thrownException = expectThrows(
             ValidationException.class,
@@ -198,11 +192,10 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     public void testFromMap_ThrowsException_WhenDimensionsAreNegative() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
         var dimensions = randomNegativeInt();
 
         var settingsMap = createRequestSettingsMap(
-            target, deploymentType, deploymentName, dimensions, true, null, SimilarityMeasure.COSINE);
+            target, deploymentType, DEFAULT_MODEL, dimensions, true, null, SimilarityMeasure.COSINE);
 
         var thrownException = expectThrows(
             ValidationException.class,
@@ -223,11 +216,10 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     public void testFromMap_ThrowsException_WhenMaxInputTokensAreZero() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
         var maxInputTokens = 0;
 
         var settingsMap = createRequestSettingsMap(
-            target, deploymentType, deploymentName, null, true, maxInputTokens, SimilarityMeasure.COSINE);
+            target, deploymentType, DEFAULT_MODEL, null, true, maxInputTokens, SimilarityMeasure.COSINE);
 
         var thrownException = expectThrows(
             ValidationException.class,
@@ -242,11 +234,11 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
 
     public void testFromMap_ThrowsException_WhenMaxInputTokensAreNegative() {
         var target = "http://sometarget.local";
-        var provider = "openai";
-        var endpointType = "token";
+        var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
         var maxInputTokens = randomNegativeInt();
 
-        var settingsMap = createRequestSettingsMap(target, provider, endpointType, null, true, maxInputTokens, SimilarityMeasure.COSINE);
+        var settingsMap = createRequestSettingsMap(
+            target, deploymentType, DEFAULT_MODEL, null, true, maxInputTokens, SimilarityMeasure.COSINE);
 
         var thrownException = expectThrows(
             ValidationException.class,
@@ -267,9 +259,8 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     public void testFromMap_PersistentContext_DoesNotThrowException_WhenDimensionsIsNull() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
 
-        var settingsMap = createRequestSettingsMap(target, deploymentType, deploymentName, null, true, null, null);
+        var settingsMap = createRequestSettingsMap(target, deploymentType, DEFAULT_MODEL, null, true, null, null);
         var serviceSettings = AzureAiStudioEmbeddingsServiceSettings.fromMap(settingsMap, ConfigurationParseContext.PERSISTENT);
 
         assertThat(
@@ -278,7 +269,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
                 new AzureAiStudioEmbeddingsServiceSettings(
                     target,
                     AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-                    "test-deployment",
+                    DEFAULT_MODEL,
                     null,
                     true,
                     null,
@@ -292,9 +283,8 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     public void testFromMap_PersistentContext_DoesNotThrowException_WhenSimilarityIsPresent() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
 
-        var settingsMap = createRequestSettingsMap(target, deploymentType, deploymentName, null, true, null, SimilarityMeasure.DOT_PRODUCT);
+        var settingsMap = createRequestSettingsMap(target, deploymentType, DEFAULT_MODEL, null, true, null, SimilarityMeasure.DOT_PRODUCT);
         var serviceSettings = AzureAiStudioEmbeddingsServiceSettings.fromMap(settingsMap, ConfigurationParseContext.PERSISTENT);
 
         assertThat(
@@ -303,7 +293,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
                 new AzureAiStudioEmbeddingsServiceSettings(
                     target,
                     AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-                    "test-deployment",
+                    DEFAULT_MODEL,
                     null,
                     true,
                     null,
@@ -317,10 +307,9 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     public void testFromMap_PersistentContext_ThrowsException_WhenDimensionsSetByUserIsNull() {
         var target = "http://sometarget.local";
         var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
-        var deploymentName = "test-deployment";
 
         var settingsMap = createRequestSettingsMap(
-            target, deploymentType, deploymentName, 1, null, null, null);
+            target, deploymentType, DEFAULT_MODEL, 1, null, null, null);
 
         var exception = expectThrows(
             ValidationException.class,
@@ -337,7 +326,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
         var entity = new AzureAiStudioEmbeddingsServiceSettings(
             "target_value",
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             null,
             true,
             null,
@@ -350,7 +339,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, CoreMatchers.is("""
-            {"target":"target_value","deployment_type":"azure_ai_model_inference_service","deployment_name":"test-deployment",""" + """
+            {"target":"target_value","deployment_type":"azure_ai_model_inference_service","model":"test-model",""" + """
             "rate_limit":{"requests_per_minute":2},"dimensions_set_by_user":true}"""));
     }
 
@@ -358,7 +347,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
         var entity = new AzureAiStudioEmbeddingsServiceSettings(
             "target_value",
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             1024,
             false,
             512,
@@ -371,7 +360,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, CoreMatchers.is("""
-            {"target":"target_value","deployment_type":"azure_ai_model_inference_service","deployment_name":"test-deployment",""" + """
+            {"target":"target_value","deployment_type":"azure_ai_model_inference_service","model":"test-model",""" + """
             "rate_limit":{"requests_per_minute":3},"dimensions":1024,"max_input_tokens":512,"dimensions_set_by_user":false}"""));
     }
 
@@ -379,7 +368,7 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
         var entity = new AzureAiStudioEmbeddingsServiceSettings(
             "target_value",
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             1024,
             false,
             512,
@@ -393,14 +382,14 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
         String xContentResult = Strings.toString(builder);
 
         assertThat(xContentResult, CoreMatchers.is("""
-            {"target":"target_value","deployment_type":"azure_ai_model_inference_service","deployment_name":"test-deployment",""" + """
+            {"target":"target_value","deployment_type":"azure_ai_model_inference_service","model":"test-model",""" + """
             "rate_limit":{"requests_per_minute":3},"dimensions":1024,"max_input_tokens":512}"""));
     }
 
     public static HashMap<String, Object> createRequestSettingsMap(
         String target,
         String deploymentType,
-        String deploymentName,
+        String model,
         @Nullable Integer dimensions,
         @Nullable Boolean dimensionsSetByUser,
         @Nullable Integer maxTokens,
@@ -412,8 +401,8 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
                 target,
                 AzureAiStudioConstants.DEPLOYMENT_TYPE_FIELD,
                 deploymentType,
-                AzureAiStudioConstants.DEPLOYMENT_NAME_FIELD,
-                deploymentName
+                AzureAiStudioConstants.MODEL_FIELD,
+                model
             )
         );
 
@@ -462,8 +451,8 @@ public class AzureAiStudioEmbeddingsServiceSettingsTests extends AbstractBWCWire
     private static AzureAiStudioEmbeddingsServiceSettings createRandom() {
         return new AzureAiStudioEmbeddingsServiceSettings(
             randomAlphaOfLength(10),
-            randomFrom(AzureAiStudioProvider.values()),
-            randomFrom(AzureAiStudioEndpointType.values()),
+            randomFrom(AzureAiStudioDeploymentType.values()),
+            randomAlphaOfLength(10),
             randomFrom(new Integer[] { null, randomNonNegativeInt() }),
             randomBoolean(),
             randomFrom(new Integer[] { null, randomNonNegativeInt() }),

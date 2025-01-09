@@ -22,11 +22,13 @@ import static org.hamcrest.CoreMatchers.is;
 
 public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
 
+    private static final String DEFAULT_MODEL = "test-model";
+
     public void testToXContent_WhenModelInferenceServiceDeployment_NoParameters() throws IOException {
         var entity = new AzureAiStudioChatCompletionRequestEntity(
             List.of("abc"),
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             null,
             null,
             null,
@@ -34,7 +36,7 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
             false
         );
         var request = getXContentAsString(entity);
-        var expectedRequest = getExpectedModelInferenceServiceDeploymentRequest(List.of("abc"), null, null, null, null);
+        var expectedRequest = getExpectedModelInferenceServiceDeploymentRequest(List.of("abc"), DEFAULT_MODEL, null, null, null, null);
         assertThat(request, is(expectedRequest));
     }
 
@@ -42,7 +44,7 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
         var entity = new AzureAiStudioChatCompletionRequestEntity(
             List.of("abc"),
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             1.0,
             null,
             null,
@@ -50,7 +52,7 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
             false
         );
         var request = getXContentAsString(entity);
-        var expectedRequest = getExpectedModelInferenceServiceDeploymentRequest(List.of("abc"), 1.0, null, null, null);
+        var expectedRequest = getExpectedModelInferenceServiceDeploymentRequest(List.of("abc"), DEFAULT_MODEL, 1.0, null, null, null);
         assertThat(request, is(expectedRequest));
     }
 
@@ -58,7 +60,7 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
         var entity = new AzureAiStudioChatCompletionRequestEntity(
             List.of("abc"),
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             null,
             2.0,
             null,
@@ -66,7 +68,7 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
             false
         );
         var request = getXContentAsString(entity);
-        var expectedRequest = getExpectedModelInferenceServiceDeploymentRequest(List.of("abc"), null, 2.0, null, null);
+        var expectedRequest = getExpectedModelInferenceServiceDeploymentRequest(List.of("abc"), DEFAULT_MODEL, null, 2.0, null, null);
         assertThat(request, is(expectedRequest));
     }
 
@@ -74,7 +76,7 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
         var entity = new AzureAiStudioChatCompletionRequestEntity(
             List.of("abc"),
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             null,
             null,
             true,
@@ -82,15 +84,15 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
             false
         );
         var request = getXContentAsString(entity);
-        var expectedRequest = getExpectedModelInferenceServiceDeploymentRequest(List.of("abc"), null, null, true, null);
+        var expectedRequest = getExpectedModelInferenceServiceDeploymentRequest(List.of("abc"), DEFAULT_MODEL, null, null, true, null);
         assertThat(request, is(expectedRequest));
     }
 
-    public void testToXContent_WhenModelInferenceServiceDeployment_WithMaxNewTokensParam() throws IOException {
+    public void testToXContent_WhenModelInferenceServiceDeployment_WithMaxTokensParam() throws IOException {
         var entity = new AzureAiStudioChatCompletionRequestEntity(
             List.of("abc"),
             AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
-            "test-deployment",
+            DEFAULT_MODEL,
             null,
             null,
             null,
@@ -98,7 +100,7 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
             false
         );
         var request = getXContentAsString(entity);
-        var expectedRequest = getExpectedModelInferenceServiceDeploymentRequest(List.of("abc"), null, null, null, 512);
+        var expectedRequest = getExpectedModelInferenceServiceDeploymentRequest(List.of("abc"), DEFAULT_MODEL, null, null, null, 512);
         assertThat(request, is(expectedRequest));
     }
 
@@ -166,7 +168,7 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
         assertThat(request, is(expectedRequest));
     }
 
-    public void testToXContent_WhenServerlessDeployment_WithMaxNewTokensParam() throws IOException {
+    public void testToXContent_WhenServerlessDeployment_WithMaxTokensParam() throws IOException {
         var entity = new AzureAiStudioChatCompletionRequestEntity(
             List.of("abc"),
             AzureAiStudioDeploymentType.SERVERLESS_API,
@@ -190,15 +192,18 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
 
     private String getExpectedModelInferenceServiceDeploymentRequest(
         List<String> inputs,
+        String model,
         @Nullable Double temperature,
         @Nullable Double topP,
         @Nullable Boolean doSample,
-        @Nullable Integer maxNewTokens
+        @Nullable Integer maxTokens
     ) {
         String expected = "{";
 
+        expected = addModel(expected, model);
+        expected += ",";
         expected = addMessageInputs("messages", expected, inputs);
-        expected = addParameters(expected, temperature, topP, doSample, maxNewTokens);
+        expected = addParameters(expected, temperature, topP, doSample, maxTokens);
 
         expected += "}";
         return expected;
@@ -209,14 +214,14 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
         @Nullable Double temperature,
         @Nullable Double topP,
         @Nullable Boolean doSample,
-        @Nullable Integer maxNewTokens
+        @Nullable Integer maxTokens
     ) {
-        String expected = "{\"input_data\":{";
+        String expected = "{";
 
-        expected = addMessageInputs("input_string", expected, inputs);
-        expected = addParameters(expected, temperature, topP, doSample, maxNewTokens);
+        expected = addMessageInputs("messages", expected, inputs);
+        expected = addParameters(expected, temperature, topP, doSample, maxTokens);
 
-        expected += "}}";
+        expected += "}";
         return expected;
     }
 
@@ -238,13 +243,13 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
     private String getMessageString(String input) {
         return Strings.format("{\"content\":\"%s\",\"role\":\"user\"}", input);
     }
-
+    private String addModel(String expected, String model) { return expected + Strings.format("\"model\":\"%s\"", model);}
     private String addParameters(String expected, Double temperature, Double topP, Boolean doSample, Integer maxNewTokens) {
         if (temperature == null && topP == null && doSample == null && maxNewTokens == null) {
             return expected;
         }
 
-        StringBuilder parameters = new StringBuilder(",\"parameters\":{");
+        StringBuilder parameters = new StringBuilder(",");
 
         var hasOne = false;
         if (temperature != null) {
@@ -272,10 +277,8 @@ public class AzureAiStudioChatCompletionRequestEntityTests extends ESTestCase {
             if (hasOne) {
                 parameters.append(",");
             }
-            parameters.append(Strings.format("\"max_new_tokens\":%d", maxNewTokens));
+            parameters.append(Strings.format("\"max_tokens\":%d", maxNewTokens));
         }
-
-        parameters.append("}");
 
         return expected + parameters;
     }

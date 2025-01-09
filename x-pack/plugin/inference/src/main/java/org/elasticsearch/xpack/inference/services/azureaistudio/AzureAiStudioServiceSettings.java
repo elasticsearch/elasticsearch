@@ -23,9 +23,10 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
 
+import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractOptionalString;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractRequiredEnum;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractRequiredString;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_NAME_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MODEL_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_TYPE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TARGET_FIELD;
 
@@ -33,7 +34,7 @@ public abstract class AzureAiStudioServiceSettings extends FilteredXContentObjec
 
     protected final String target;
     protected final AzureAiStudioDeploymentType deploymentType;
-    protected final String deploymentName;
+    protected final String model;
     protected final RateLimitSettings rateLimitSettings;
 
     protected static final RateLimitSettings DEFAULT_RATE_LIMIT_SETTINGS = new RateLimitSettings(240);
@@ -59,39 +60,39 @@ public abstract class AzureAiStudioServiceSettings extends FilteredXContentObjec
             EnumSet.allOf(AzureAiStudioDeploymentType.class),
             validationException
         );
-        String deploymentName = extractRequiredString(
+        String model = extractOptionalString(
             map,
-            DEPLOYMENT_NAME_FIELD,
+            MODEL_FIELD,
             ModelConfigurations.SERVICE_SETTINGS,
             validationException
         );
 
-        return new BaseAzureAiStudioCommonFields(target, deploymentType, deploymentName, rateLimitSettings);
+        return new BaseAzureAiStudioCommonFields(target, deploymentType, model, rateLimitSettings);
     }
 
     protected AzureAiStudioServiceSettings(StreamInput in) throws IOException {
         this.target = in.readString();
         this.deploymentType = in.readEnum(AzureAiStudioDeploymentType.class);
-        this.deploymentName = in.readString();
+        this.model = in.readString();
         this.rateLimitSettings = new RateLimitSettings(in);
     }
 
     protected AzureAiStudioServiceSettings(
         String target,
         AzureAiStudioDeploymentType deploymentType,
-        String deploymentName,
+        String model,
         @Nullable RateLimitSettings rateLimitSettings
     ) {
         this.target = target;
         this.deploymentType = deploymentType;
-        this.deploymentName = deploymentName;
+        this.model = model;
         this.rateLimitSettings = Objects.requireNonNullElse(rateLimitSettings, DEFAULT_RATE_LIMIT_SETTINGS);
     }
 
     protected record BaseAzureAiStudioCommonFields(
         String target,
         AzureAiStudioDeploymentType deploymentType,
-        @Nullable String deploymentName,
+        @Nullable String model,
         RateLimitSettings rateLimitSettings
     ) {}
 
@@ -103,8 +104,8 @@ public abstract class AzureAiStudioServiceSettings extends FilteredXContentObjec
         return this.deploymentType;
     }
 
-    public String deploymentName() {
-        return this.deploymentName;
+    public String model() {
+        return this.model;
     }
 
     public RateLimitSettings rateLimitSettings() {
@@ -120,7 +121,7 @@ public abstract class AzureAiStudioServiceSettings extends FilteredXContentObjec
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(target);
         out.writeEnum(deploymentType);
-        out.writeString(deploymentName);
+        out.writeString(model);
         rateLimitSettings.writeTo(out);
     }
 
@@ -131,7 +132,7 @@ public abstract class AzureAiStudioServiceSettings extends FilteredXContentObjec
     protected void addExposedXContentFields(XContentBuilder builder, Params params) throws IOException {
         builder.field(TARGET_FIELD, this.target);
         builder.field(DEPLOYMENT_TYPE_FIELD, this.deploymentType);
-        builder.field(DEPLOYMENT_NAME_FIELD, this.deploymentName);
+        builder.field(MODEL_FIELD, this.model);
         rateLimitSettings.toXContent(builder, params);
     }
 

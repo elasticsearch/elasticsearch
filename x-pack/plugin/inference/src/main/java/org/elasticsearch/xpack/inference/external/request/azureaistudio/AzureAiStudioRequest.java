@@ -31,8 +31,11 @@ public abstract class AzureAiStudioRequest implements Request {
         var apiKey = model.getSecretSettings().apiKey();
         if (model.deploymentType() == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE) {
             request.setHeader(API_KEY_HEADER, apiKey.toString());
-        } else {
+        } else if (model.deploymentType() == AzureAiStudioDeploymentType.SERVERLESS_API) {
             request.setHeader(RequestUtils.createAuthBearerHeader(apiKey));
+        } else {
+            // default to api-key header
+            request.setHeader(API_KEY_HEADER, apiKey.toString());
         }
     }
 
