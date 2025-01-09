@@ -15,16 +15,12 @@ import org.elasticsearch.inference.TaskType;
 import org.elasticsearch.xpack.inference.external.action.ExecutableAction;
 import org.elasticsearch.xpack.inference.external.action.azureaistudio.AzureAiStudioActionVisitor;
 import org.elasticsearch.xpack.inference.services.ConfigurationParseContext;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
 import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioModel;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
 import org.elasticsearch.xpack.inference.services.settings.DefaultSecretSettings;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
-
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.EMBEDDINGS_URI_PATH;
 
 public class AzureAiStudioEmbeddingsModel extends AzureAiStudioModel {
 
@@ -95,11 +91,7 @@ public class AzureAiStudioEmbeddingsModel extends AzureAiStudioModel {
 
     @Override
     protected URI getEndpointUri() throws URISyntaxException {
-        if (this.provider == AzureAiStudioProvider.OPENAI || this.endpointType == AzureAiStudioEndpointType.REALTIME) {
-            return new URI(this.target);
-        }
-
-        return new URI(this.target + EMBEDDINGS_URI_PATH);
+        return new URI(this.target);
     }
 
     @Override

@@ -60,11 +60,9 @@ import static org.elasticsearch.xpack.inference.services.ServiceUtils.removeFrom
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.removeFromMapOrThrowIfNull;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.throwIfNotEmptyMap;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.throwUnsupportedUnifiedCompletionOperation;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.ENDPOINT_TYPE_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.PROVIDER_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_NAME_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_TYPE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TARGET_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProviderCapabilities.providerAllowsEndpointTypeForTask;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProviderCapabilities.providerAllowsTaskType;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.completion.AzureAiStudioChatCompletionTaskSettings.DEFAULT_MAX_NEW_TOKENS;
 import static org.elasticsearch.xpack.inference.services.openai.OpenAiServiceFields.EMBEDDING_MAX_BATCH_SIZE;
 
@@ -270,10 +268,9 @@ public class AzureAiStudioService extends SenderService {
                 secretSettings,
                 context
             );
-            checkProviderAndEndpointTypeForTask(
-                TaskType.TEXT_EMBEDDING,
-                embeddingsModel.getServiceSettings().provider(),
-                embeddingsModel.getServiceSettings().endpointType()
+            checkDeploymentTypeAndName(
+                embeddingsModel.getServiceSettings().deploymentType(),
+                embeddingsModel.getServiceSettings().deploymentName()
             );
             return embeddingsModel;
         }
@@ -287,11 +284,6 @@ public class AzureAiStudioService extends SenderService {
                 taskSettings,
                 secretSettings,
                 context
-            );
-            checkProviderAndEndpointTypeForTask(
-                TaskType.COMPLETION,
-                completionModel.getServiceSettings().provider(),
-                completionModel.getServiceSettings().endpointType()
             );
             return completionModel;
         }
@@ -335,8 +327,8 @@ public class AzureAiStudioService extends SenderService {
 
             var updatedServiceSettings = new AzureAiStudioEmbeddingsServiceSettings(
                 serviceSettings.target(),
-                serviceSettings.provider(),
-                serviceSettings.endpointType(),
+                serviceSettings.deploymentType(),
+                serviceSettings.deploymentName(),
                 embeddingSize,
                 serviceSettings.dimensionsSetByUser(),
                 serviceSettings.maxInputTokens(),
@@ -370,25 +362,13 @@ public class AzureAiStudioService extends SenderService {
         }
     }
 
-    private static void checkProviderAndEndpointTypeForTask(
-        TaskType taskType,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType
-    ) {
-        if (providerAllowsTaskType(provider, taskType) == false) {
-            throw new ElasticsearchStatusException(
-                Strings.format("The [%s] task type for provider [%s] is not available", taskType, provider),
-                RestStatus.BAD_REQUEST
-            );
-        }
+    private static void checkDeploymentTypeAndName(AzureAiStudioDeploymentType deploymentType, String deploymentName) {
 
-        if (providerAllowsEndpointTypeForTask(provider, taskType, endpointType) == false) {
+        if (deploymentType == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE && deploymentName == null) {
             throw new ElasticsearchStatusException(
                 Strings.format(
-                    "The [%s] endpoint type with [%s] task type for provider [%s] is not available",
-                    endpointType,
-                    taskType,
-                    provider
+                    "A deployment name is required for deployments of type [%s].",
+                    deploymentType
                 ),
                 RestStatus.BAD_REQUEST
             );
@@ -416,11 +396,10 @@ public class AzureAiStudioService extends SenderService {
                 );
 
                 configurationMap.put(
-                    ENDPOINT_TYPE_FIELD,
-                    new SettingsConfiguration.Builder().setDescription(
-                        "Specifies the type of endpoint that is used in your model deployment."
-                    )
-                        .setLabel("Endpoint Type")
+                    DEPLOYMENT_TYPE_FIELD,
+                    new SettingsConfiguration.Builder()
+                        .setDescription("Specifies the type of endpoint that is used in your model deployment.")
+                        .setLabel("Deployment Type")
                         .setRequired(true)
                         .setSensitive(false)
                         .setUpdatable(false)
@@ -429,13 +408,13 @@ public class AzureAiStudioService extends SenderService {
                 );
 
                 configurationMap.put(
-                    PROVIDER_FIELD,
-                    new SettingsConfiguration.Builder().setDescription("The model provider for your deployment.")
-                        .setLabel("Provider")
+                    DEPLOYMENT_NAME_FIELD,
+                    new SettingsConfiguration.Builder()
+                        .setDescription("The name for your deployment.")
+                        .setLabel("Deployment Name")
                         .setRequired(true)
                         .setSensitive(false)
                         .setUpdatable(false)
-                        .setType(SettingsConfigurationFieldType.STRING)
                         .build()
                 );
 

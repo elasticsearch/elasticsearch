@@ -15,8 +15,7 @@ import org.elasticsearch.xcontent.XContentFactory;
 import org.elasticsearch.xcontent.XContentType;
 import org.elasticsearch.xpack.core.ml.AbstractBWCWireSerializationTestCase;
 import org.elasticsearch.xpack.inference.services.ConfigurationParseContext;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
+import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettings;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettingsTests;
 import org.hamcrest.CoreMatchers;
@@ -25,8 +24,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.ENDPOINT_TYPE_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.PROVIDER_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_NAME_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_TYPE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TARGET_FIELD;
 import static org.hamcrest.Matchers.is;
 
@@ -34,26 +33,27 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
     AzureAiStudioChatCompletionServiceSettings> {
     public void testFromMap_Request_CreatesSettingsCorrectly() {
         var target = "http://sometarget.local";
-        var provider = "openai";
-        var endpointType = "token";
+        var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
+        var deploymentName = "test-deployment";
 
         var serviceSettings = AzureAiStudioChatCompletionServiceSettings.fromMap(
-            createRequestSettingsMap(target, provider, endpointType),
+            createRequestSettingsMap(target, deploymentType, deploymentName),
             ConfigurationParseContext.REQUEST
         );
 
         assertThat(
             serviceSettings,
-            is(new AzureAiStudioChatCompletionServiceSettings(target, AzureAiStudioProvider.OPENAI, AzureAiStudioEndpointType.TOKEN, null))
+            is(new AzureAiStudioChatCompletionServiceSettings(
+                target, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-deployment", null))
         );
     }
 
     public void testFromMap_RequestWithRateLimit_CreatesSettingsCorrectly() {
         var target = "http://sometarget.local";
-        var provider = "openai";
-        var endpointType = "token";
+        var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
+        var deploymentName = "test-deployment";
 
-        var settingsMap = createRequestSettingsMap(target, provider, endpointType);
+        var settingsMap = createRequestSettingsMap(target, deploymentType, deploymentName);
         settingsMap.put(RateLimitSettings.FIELD_NAME, new HashMap<>(Map.of(RateLimitSettings.REQUESTS_PER_MINUTE_FIELD, 3)));
 
         var serviceSettings = AzureAiStudioChatCompletionServiceSettings.fromMap(settingsMap, ConfigurationParseContext.REQUEST);
@@ -63,8 +63,8 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
             is(
                 new AzureAiStudioChatCompletionServiceSettings(
                     target,
-                    AzureAiStudioProvider.OPENAI,
-                    AzureAiStudioEndpointType.TOKEN,
+                    AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+                    "test-deployment",
                     new RateLimitSettings(3)
                 )
             )
@@ -73,25 +73,26 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
 
     public void testFromMap_Persistent_CreatesSettingsCorrectly() {
         var target = "http://sometarget.local";
-        var provider = "openai";
-        var endpointType = "token";
+        var deploymentType = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE.toString();
+        var deploymentName = "test-deployment";
 
         var serviceSettings = AzureAiStudioChatCompletionServiceSettings.fromMap(
-            createRequestSettingsMap(target, provider, endpointType),
+            createRequestSettingsMap(target, deploymentType, deploymentName),
             ConfigurationParseContext.PERSISTENT
         );
 
         assertThat(
             serviceSettings,
-            is(new AzureAiStudioChatCompletionServiceSettings(target, AzureAiStudioProvider.OPENAI, AzureAiStudioEndpointType.TOKEN, null))
+            is(new AzureAiStudioChatCompletionServiceSettings(
+                target, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "test-deployment", null))
         );
     }
 
     public void testToXContent_WritesAllValues() throws IOException {
         var settings = new AzureAiStudioChatCompletionServiceSettings(
             "target_value",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+            "test-deployment",
             new RateLimitSettings(3)
         );
         XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
@@ -106,8 +107,8 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
     public void testToFilteredXContent_WritesAllValues() throws IOException {
         var settings = new AzureAiStudioChatCompletionServiceSettings(
             "target_value",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+            "test-deployment",
             new RateLimitSettings(3)
         );
         XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
@@ -120,8 +121,8 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
             "rate_limit":{"requests_per_minute":3}}"""));
     }
 
-    public static HashMap<String, Object> createRequestSettingsMap(String target, String provider, String endpointType) {
-        return new HashMap<>(Map.of(TARGET_FIELD, target, PROVIDER_FIELD, provider, ENDPOINT_TYPE_FIELD, endpointType));
+    public static HashMap<String, Object> createRequestSettingsMap(String target, String deploymentType, String deploymentName) {
+        return new HashMap<>(Map.of(TARGET_FIELD, target, DEPLOYMENT_TYPE_FIELD, deploymentType, DEPLOYMENT_NAME_FIELD, deploymentName));
     }
 
     @Override
@@ -151,8 +152,8 @@ public class AzureAiStudioChatCompletionServiceSettingsTests extends AbstractBWC
     private static AzureAiStudioChatCompletionServiceSettings createRandom() {
         return new AzureAiStudioChatCompletionServiceSettings(
             randomAlphaOfLength(10),
-            randomFrom(AzureAiStudioProvider.values()),
-            randomFrom(AzureAiStudioEndpointType.values()),
+            randomFrom(AzureAiStudioDeploymentType.values()),
+            randomAlphaOfLength(15),
             RateLimitSettingsTests.createRandom()
         );
     }

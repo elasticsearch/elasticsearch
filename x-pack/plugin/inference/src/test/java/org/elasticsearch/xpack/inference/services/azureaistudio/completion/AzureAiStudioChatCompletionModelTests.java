@@ -11,6 +11,7 @@ import org.elasticsearch.common.settings.SecureString;
 import org.elasticsearch.core.Nullable;
 import org.elasticsearch.inference.TaskType;
 import org.elasticsearch.test.ESTestCase;
+import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
 import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
 import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
 import org.elasticsearch.xpack.inference.services.settings.DefaultSecretSettings;
@@ -203,18 +204,18 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
     public static AzureAiStudioChatCompletionModel createModel(
         String id,
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        String deploymentName,
         String apiKey
     ) {
-        return createModel(id, target, provider, endpointType, apiKey, null, null, null, null, null);
+        return createModel(id, target, deploymentType, deploymentName, apiKey, null, null, null, null, null);
     }
 
     public static AzureAiStudioChatCompletionModel createModel(
         String id,
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        @Nullable String deploymentName,
         String apiKey,
         @Nullable Double temperature,
         @Nullable Double topP,
@@ -226,7 +227,7 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
             id,
             TaskType.COMPLETION,
             "azureaistudio",
-            new AzureAiStudioChatCompletionServiceSettings(target, provider, endpointType, rateLimitSettings),
+            new AzureAiStudioChatCompletionServiceSettings(target, deploymentType, deploymentName, rateLimitSettings),
             new AzureAiStudioChatCompletionTaskSettings(temperature, topP, doSample, maxNewTokens),
             new DefaultSecretSettings(new SecureString(apiKey.toCharArray()))
         );

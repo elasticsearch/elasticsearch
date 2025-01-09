@@ -17,6 +17,7 @@ public final class AzureAiStudioRequestFields {
     public static final String ROLE = "role";
     public static final String USER_ROLE = "user";
     public static final String STREAM = "stream";
+    public static final String DEPLOYMENT_NAME = "model";
 
     private AzureAiStudioRequestFields() {}
 }

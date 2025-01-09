@@ -32,10 +32,6 @@ public class AzureAiStudioChatCompletionRequest extends AzureAiStudioRequest {
         this.stream = stream;
     }
 
-    public boolean isRealtimeEndpoint() {
-        return isRealtimeEndpoint;
-    }
-
     @Override
     public HttpRequest createHttpRequest() {
         HttpPost httpPost = new HttpPost(this.uri);
@@ -71,7 +67,8 @@ public class AzureAiStudioChatCompletionRequest extends AzureAiStudioRequest {
         var serviceSettings = completionModel.getServiceSettings();
         return new AzureAiStudioChatCompletionRequestEntity(
             input,
-            serviceSettings.endpointType(),
+            serviceSettings.deploymentType(),
+            serviceSettings.deploymentName(),
             taskSettings.temperature(),
             taskSettings.topP(),
             taskSettings.doSample(),

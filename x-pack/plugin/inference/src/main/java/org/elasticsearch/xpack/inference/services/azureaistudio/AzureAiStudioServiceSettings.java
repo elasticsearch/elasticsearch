@@ -25,15 +25,15 @@ import java.util.Objects;
 
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractRequiredEnum;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractRequiredString;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.ENDPOINT_TYPE_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.PROVIDER_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_NAME_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DEPLOYMENT_TYPE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TARGET_FIELD;
 
 public abstract class AzureAiStudioServiceSettings extends FilteredXContentObject implements ServiceSettings {
 
     protected final String target;
-    protected final AzureAiStudioProvider provider;
-    protected final AzureAiStudioEndpointType endpointType;
+    protected final AzureAiStudioDeploymentType deploymentType;
+    protected final String deploymentName;
     protected final RateLimitSettings rateLimitSettings;
 
     protected static final RateLimitSettings DEFAULT_RATE_LIMIT_SETTINGS = new RateLimitSettings(240);
@@ -51,50 +51,47 @@ public abstract class AzureAiStudioServiceSettings extends FilteredXContentObjec
             AzureAiStudioService.NAME,
             context
         );
-        AzureAiStudioEndpointType endpointType = extractRequiredEnum(
+        AzureAiStudioDeploymentType deploymentType = extractRequiredEnum(
             map,
-            ENDPOINT_TYPE_FIELD,
+            DEPLOYMENT_TYPE_FIELD,
             ModelConfigurations.SERVICE_SETTINGS,
-            AzureAiStudioEndpointType::fromString,
-            EnumSet.allOf(AzureAiStudioEndpointType.class),
+            AzureAiStudioDeploymentType::fromString,
+            EnumSet.allOf(AzureAiStudioDeploymentType.class),
+            validationException
+        );
+        String deploymentName = extractRequiredString(
+            map,
+            DEPLOYMENT_NAME_FIELD,
+            ModelConfigurations.SERVICE_SETTINGS,
             validationException
         );
 
-        AzureAiStudioProvider provider = extractRequiredEnum(
-            map,
-            PROVIDER_FIELD,
-            ModelConfigurations.SERVICE_SETTINGS,
-            AzureAiStudioProvider::fromString,
-            EnumSet.allOf(AzureAiStudioProvider.class),
-            validationException
-        );
-
-        return new BaseAzureAiStudioCommonFields(target, provider, endpointType, rateLimitSettings);
+        return new BaseAzureAiStudioCommonFields(target, deploymentType, deploymentName, rateLimitSettings);
     }
 
     protected AzureAiStudioServiceSettings(StreamInput in) throws IOException {
         this.target = in.readString();
-        this.provider = in.readEnum(AzureAiStudioProvider.class);
-        this.endpointType = in.readEnum(AzureAiStudioEndpointType.class);
+        this.deploymentType = in.readEnum(AzureAiStudioDeploymentType.class);
+        this.deploymentName = in.readString();
         this.rateLimitSettings = new RateLimitSettings(in);
     }
 
     protected AzureAiStudioServiceSettings(
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        String deploymentName,
         @Nullable RateLimitSettings rateLimitSettings
     ) {
         this.target = target;
-        this.provider = provider;
-        this.endpointType = endpointType;
+        this.deploymentType = deploymentType;
+        this.deploymentName = deploymentName;
         this.rateLimitSettings = Objects.requireNonNullElse(rateLimitSettings, DEFAULT_RATE_LIMIT_SETTINGS);
     }
 
     protected record BaseAzureAiStudioCommonFields(
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        @Nullable String deploymentName,
         RateLimitSettings rateLimitSettings
     ) {}
 
@@ -102,12 +99,12 @@ public abstract class AzureAiStudioServiceSettings extends FilteredXContentObjec
         return this.target;
     }
 
-    public AzureAiStudioProvider provider() {
-        return this.provider;
+    public AzureAiStudioDeploymentType deploymentType() {
+        return this.deploymentType;
     }
 
-    public AzureAiStudioEndpointType endpointType() {
-        return this.endpointType;
+    public String deploymentName() {
+        return this.deploymentName;
     }
 
     public RateLimitSettings rateLimitSettings() {
@@ -122,8 +119,8 @@ public abstract class AzureAiStudioServiceSettings extends FilteredXContentObjec
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(target);
-        out.writeEnum(provider);
-        out.writeEnum(endpointType);
+        out.writeEnum(deploymentType);
+        out.writeString(deploymentName);
         rateLimitSettings.writeTo(out);
     }
 
@@ -133,8 +130,8 @@ public abstract class AzureAiStudioServiceSettings extends FilteredXContentObjec
 
     protected void addExposedXContentFields(XContentBuilder builder, Params params) throws IOException {
         builder.field(TARGET_FIELD, this.target);
-        builder.field(PROVIDER_FIELD, this.provider);
-        builder.field(ENDPOINT_TYPE_FIELD, this.endpointType);
+        builder.field(DEPLOYMENT_TYPE_FIELD, this.deploymentType);
+        builder.field(DEPLOYMENT_NAME_FIELD, this.deploymentName);
         rateLimitSettings.toXContent(builder, params);
     }
 

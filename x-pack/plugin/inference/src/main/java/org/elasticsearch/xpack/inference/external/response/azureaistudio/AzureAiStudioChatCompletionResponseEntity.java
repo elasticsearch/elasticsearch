@@ -31,9 +31,6 @@ public class AzureAiStudioChatCompletionResponseEntity extends BaseResponseEntit
     @Override
     protected InferenceServiceResults fromResponse(Request request, HttpResult response) throws IOException {
         if (request instanceof AzureAiStudioChatCompletionRequest asChatCompletionRequest) {
-            if (asChatCompletionRequest.isRealtimeEndpoint()) {
-                return parseRealtimeEndpointResponse(response);
-            }
 
             // we can use the OpenAI chat completion type if it's not a realtime endpoint
             return OpenAiChatCompletionResponseEntity.fromResponse(request, response);
