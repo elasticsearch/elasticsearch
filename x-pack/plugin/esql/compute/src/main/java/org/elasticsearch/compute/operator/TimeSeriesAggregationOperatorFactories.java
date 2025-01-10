@@ -62,6 +62,7 @@ public final class TimeSeriesAggregationOperatorFactories {
             return new HashAggregationOperator(
                 aggregators,
                 () -> new TimeSeriesBlockHash(tsHashChannel, timeBucketChannel, driverContext),
+                maxPageSize,
                 driverContext
             );
         }
@@ -97,6 +98,7 @@ public final class TimeSeriesAggregationOperatorFactories {
             return new HashAggregationOperator(
                 aggregators,
                 () -> BlockHash.build(hashGroups, driverContext.blockFactory(), maxPageSize, false),
+                maxPageSize,
                 driverContext
             );
         }
@@ -125,6 +127,7 @@ public final class TimeSeriesAggregationOperatorFactories {
             return new HashAggregationOperator(
                 aggregators,
                 () -> BlockHash.build(groupings, driverContext.blockFactory(), maxPageSize, false),
+                maxPageSize,
                 driverContext
             );
         }
