@@ -100,12 +100,6 @@ public class StackTemplateRegistry extends IndexTemplateRegistry {
     public static final String SYNTHETICS_ILM_POLICY_NAME = "synthetics@lifecycle";
     public static final String SYNTHETICS_INDEX_TEMPLATE_NAME = "synthetics";
 
-    ///////////////////////////////////
-    // Kibana reporting template
-    ///////////////////////////////////
-    public static final String KIBANA_REPORTING_INDEX_TEMPLATE_NAME = ".kibana-reporting";
-    public static final String KIBANA_REPORTING_COMPONENT_TEMPLATE_NAME = "kibana-reporting@settings";
-
     public StackTemplateRegistry(
         Settings nodeSettings,
         ClusterService clusterService,
@@ -198,13 +192,6 @@ public class StackTemplateRegistry extends IndexTemplateRegistry {
                 REGISTRY_VERSION,
                 TEMPLATE_VERSION_VARIABLE,
                 ADDITIONAL_TEMPLATE_VARIABLES
-            ),
-            new IndexTemplateConfig(
-                KIBANA_REPORTING_COMPONENT_TEMPLATE_NAME,
-                "/kibana-reporting@settings.json",
-                REGISTRY_VERSION,
-                TEMPLATE_VERSION_VARIABLE,
-                ADDITIONAL_TEMPLATE_VARIABLES
             )
         )) {
             try {
@@ -283,13 +270,6 @@ public class StackTemplateRegistry extends IndexTemplateRegistry {
         new IndexTemplateConfig(
             SYNTHETICS_INDEX_TEMPLATE_NAME,
             "/synthetics@template.json",
-            REGISTRY_VERSION,
-            TEMPLATE_VERSION_VARIABLE,
-            ADDITIONAL_TEMPLATE_VARIABLES
-        ),
-        new IndexTemplateConfig(
-            KIBANA_REPORTING_INDEX_TEMPLATE_NAME,
-            "/kibana-reporting@template.json",
             REGISTRY_VERSION,
             TEMPLATE_VERSION_VARIABLE,
             ADDITIONAL_TEMPLATE_VARIABLES
