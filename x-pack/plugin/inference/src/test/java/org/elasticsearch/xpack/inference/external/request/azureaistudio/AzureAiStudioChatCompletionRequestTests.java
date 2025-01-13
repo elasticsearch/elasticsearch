@@ -22,7 +22,6 @@ import java.util.Map;
 
 import static org.elasticsearch.xpack.inference.external.http.Utils.entityAsMap;
 import static org.elasticsearch.xpack.inference.external.request.azureopenai.AzureOpenAiUtils.API_KEY_HEADER;
-import static org.elasticsearch.xpack.inference.external.request.azureopenai.AzureOpenAiUtils.BEARER_PREFIX;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -31,6 +30,7 @@ public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
 
     private static final String DEFAULT_TARGET = "http://target.local/completions";
     private static final String DEFAULT_MODEL = "test-model";
+    private static final String BEARER_PREFIX = "Bearer ";
 
     public void testCreateRequest_WithModelInferenceServiceDeployment_NoParams() throws IOException {
         var request = createRequest(

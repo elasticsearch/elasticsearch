@@ -22,7 +22,7 @@ public class AzureAiStudioChatCompletionResponseEntity extends BaseResponseEntit
     protected InferenceServiceResults fromResponse(Request request, HttpResult response) throws IOException {
         if (request instanceof AzureAiStudioChatCompletionRequest asChatCompletionRequest) {
 
-            // we can use the OpenAI chat completion type as it is the same as Azure AI Studio's format
+            // we can use the OpenAI chat completion type as it is the same as Azure AI Foundry's format
             return OpenAiChatCompletionResponseEntity.fromResponse(request, response);
         }
 
