@@ -27,7 +27,7 @@ import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractOpt
 import static org.elasticsearch.xpack.inference.services.azureaifoundry.AzureAiFoundryConstants.USER_FIELD;
 
 public class AzureAiFoundryEmbeddingsTaskSettings implements TaskSettings {
-    public static final String NAME = "azure_ai_studio_embeddings_task_settings";
+    public static final String NAME = "azure_ai_foundry_embeddings_task_settings";
 
     public static AzureAiFoundryEmbeddingsTaskSettings fromMap(Map<String, Object> map) {
         ValidationException validationException = new ValidationException();

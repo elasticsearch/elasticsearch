@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 
 public class AzureAiFoundryChatCompletionServiceSettings extends AzureAiFoundryServiceSettings {
-    public static final String NAME = "azure_ai_studio_chat_completion_service_settings";
+    public static final String NAME = "azure_ai_foundry_chat_completion_service_settings";
 
     public static AzureAiFoundryChatCompletionServiceSettings fromMap(Map<String, Object> map, ConfigurationParseContext context) {
         ValidationException validationException = new ValidationException();

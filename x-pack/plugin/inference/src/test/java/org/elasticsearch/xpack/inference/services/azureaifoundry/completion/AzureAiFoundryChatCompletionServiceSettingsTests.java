@@ -16,6 +16,8 @@ import org.elasticsearch.xcontent.XContentType;
 import org.elasticsearch.xpack.core.ml.AbstractBWCWireSerializationTestCase;
 import org.elasticsearch.xpack.inference.services.ConfigurationParseContext;
 import org.elasticsearch.xpack.inference.services.azureaifoundry.AzureAiFoundryDeploymentType;
+import org.elasticsearch.xpack.inference.services.azureaifoundry.AzureAiFoundryEndpointType;
+import org.elasticsearch.xpack.inference.services.azureaifoundry.AzureAiFoundryProvider;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettings;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettingsTests;
 import org.hamcrest.CoreMatchers;
@@ -24,6 +26,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.elasticsearch.TransportVersions.AZURE_AI_FOUNDRY_INTEGRATION_FIX_1_10_25;
 import static org.elasticsearch.xpack.inference.services.azureaifoundry.AzureAiFoundryConstants.DEPLOYMENT_TYPE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaifoundry.AzureAiFoundryConstants.MODEL_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaifoundry.AzureAiFoundryConstants.TARGET_FIELD;
@@ -146,6 +149,9 @@ public class AzureAiFoundryChatCompletionServiceSettingsTests extends AbstractBW
         AzureAiFoundryChatCompletionServiceSettings instance,
         TransportVersion version
     ) {
+        if (version.before(AZURE_AI_FOUNDRY_INTEGRATION_FIX_1_10_25)) {
+            return new AzureAiFoundryChatCompletionServiceSettings(instance.target(), null, null, null);
+        }
         return instance;
     }
 

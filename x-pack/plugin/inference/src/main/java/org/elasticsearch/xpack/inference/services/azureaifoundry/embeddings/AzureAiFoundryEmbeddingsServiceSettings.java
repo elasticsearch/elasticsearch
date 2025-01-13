@@ -37,7 +37,7 @@ import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractSim
 
 public class AzureAiFoundryEmbeddingsServiceSettings extends AzureAiFoundryServiceSettings {
 
-    public static final String NAME = "azure_ai_studio_embeddings_service_settings";
+    public static final String NAME = "azure_ai_foundry_embeddings_service_settings";
     static final String DIMENSIONS_SET_BY_USER = "dimensions_set_by_user";
 
     public static AzureAiFoundryEmbeddingsServiceSettings fromMap(Map<String, Object> map, ConfigurationParseContext context) {

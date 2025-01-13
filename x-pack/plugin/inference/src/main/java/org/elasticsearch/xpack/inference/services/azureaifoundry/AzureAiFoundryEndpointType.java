@@ -11,9 +11,10 @@ import java.util.Locale;
 
 public enum AzureAiFoundryEndpointType {
     TOKEN,
-    REALTIME;
+    REALTIME,
+    NONE;
 
-    public static final String NAME = "azure_ai_studio_endpoint_type";
+    public static final String NAME = "azure_ai_foundry_endpoint_type";
 
     public static AzureAiFoundryEndpointType fromString(String name) {
         return valueOf(name.trim().toUpperCase(Locale.ROOT));

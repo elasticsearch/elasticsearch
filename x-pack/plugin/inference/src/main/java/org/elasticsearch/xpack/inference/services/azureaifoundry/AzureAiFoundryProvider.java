@@ -15,9 +15,10 @@ public enum AzureAiFoundryProvider {
     META,
     MICROSOFT_PHI,
     COHERE,
-    DATABRICKS;
+    DATABRICKS,
+    NONE;
 
-    public static final String NAME = "azure_ai_studio_provider";
+    public static final String NAME = "azure_ai_foundry_provider";
 
     public static AzureAiFoundryProvider fromString(String name) {
         return valueOf(name.trim().toUpperCase(Locale.ROOT));

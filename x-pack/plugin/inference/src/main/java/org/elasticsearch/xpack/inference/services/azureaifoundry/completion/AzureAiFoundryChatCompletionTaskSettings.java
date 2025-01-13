@@ -33,7 +33,7 @@ import static org.elasticsearch.xpack.inference.services.azureaifoundry.AzureAiF
 import static org.elasticsearch.xpack.inference.services.azureaifoundry.AzureAiFoundryConstants.TOP_P_FIELD;
 
 public class AzureAiFoundryChatCompletionTaskSettings implements TaskSettings {
-    public static final String NAME = "azure_ai_studio_chat_completion_task_settings";
+    public static final String NAME = "azure_ai_foundry_chat_completion_task_settings";
     public static final Integer DEFAULT_MAX_TOKENS = 64;
 
     public static AzureAiFoundryChatCompletionTaskSettings fromMap(Map<String, Object> map) {

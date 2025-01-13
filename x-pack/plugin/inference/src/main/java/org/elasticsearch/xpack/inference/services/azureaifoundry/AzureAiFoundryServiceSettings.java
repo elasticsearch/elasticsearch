@@ -23,6 +23,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
 
+import static org.elasticsearch.TransportVersions.AZURE_AI_FOUNDRY_INTEGRATION_FIX_1_10_25;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractOptionalString;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractRequiredEnum;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractRequiredString;
@@ -72,8 +73,16 @@ public abstract class AzureAiFoundryServiceSettings extends FilteredXContentObje
 
     protected AzureAiFoundryServiceSettings(StreamInput in) throws IOException {
         this.target = in.readString();
-        this.deploymentType = in.readEnum(AzureAiFoundryDeploymentType.class);
-        this.model = in.readString();
+
+        if (in.getTransportVersion().before(AZURE_AI_FOUNDRY_INTEGRATION_FIX_1_10_25)) {
+            in.readEnum(AzureAiFoundryProvider.class);
+            in.readEnum(AzureAiFoundryEndpointType.class);
+            this.deploymentType = null;
+            this.model = null;
+        } else {
+            this.deploymentType = in.readEnum(AzureAiFoundryDeploymentType.class);
+            this.model = in.readOptionalString();
+        }
         this.rateLimitSettings = new RateLimitSettings(in);
     }
 
@@ -120,8 +129,13 @@ public abstract class AzureAiFoundryServiceSettings extends FilteredXContentObje
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(target);
-        out.writeEnum(deploymentType);
-        out.writeString(model);
+        if (out.getTransportVersion().before(AZURE_AI_FOUNDRY_INTEGRATION_FIX_1_10_25)) {
+            out.writeEnum(AzureAiFoundryProvider.NONE);
+            out.writeEnum(AzureAiFoundryEndpointType.NONE);
+        } else {
+            out.writeEnum(deploymentType);
+            out.writeOptionalString(model);
+        }
         rateLimitSettings.writeTo(out);
     }
 
