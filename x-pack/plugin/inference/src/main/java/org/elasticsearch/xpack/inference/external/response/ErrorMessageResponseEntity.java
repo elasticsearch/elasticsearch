@@ -29,7 +29,7 @@ import java.util.Objects;
  *
  * Others may return additional information such as error codes specific to the service.
  *
- * This currently covers error handling for Azure AI Studio, however this pattern
+ * This currently covers error handling for Azure AI Foundry, however this pattern
  * can be used to simplify and refactor handling for Azure OpenAI and OpenAI responses.
  */
 public class ErrorMessageResponseEntity extends ErrorResponse {

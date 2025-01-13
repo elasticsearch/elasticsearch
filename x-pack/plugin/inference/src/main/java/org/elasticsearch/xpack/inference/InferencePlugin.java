@@ -101,7 +101,7 @@ import org.elasticsearch.xpack.inference.services.ServiceComponents;
 import org.elasticsearch.xpack.inference.services.alibabacloudsearch.AlibabaCloudSearchService;
 import org.elasticsearch.xpack.inference.services.amazonbedrock.AmazonBedrockService;
 import org.elasticsearch.xpack.inference.services.anthropic.AnthropicService;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioService;
+import org.elasticsearch.xpack.inference.services.azureaifoundry.AzureAiFoundryService;
 import org.elasticsearch.xpack.inference.services.azureopenai.AzureOpenAiService;
 import org.elasticsearch.xpack.inference.services.cohere.CohereService;
 import org.elasticsearch.xpack.inference.services.elastic.ElasticInferenceService;
@@ -313,7 +313,7 @@ public class InferencePlugin extends Plugin implements ActionPlugin, ExtensibleP
             context -> new OpenAiService(httpFactory.get(), serviceComponents.get()),
             context -> new CohereService(httpFactory.get(), serviceComponents.get()),
             context -> new AzureOpenAiService(httpFactory.get(), serviceComponents.get()),
-            context -> new AzureAiStudioService(httpFactory.get(), serviceComponents.get()),
+            context -> new AzureAiFoundryService(httpFactory.get(), serviceComponents.get()),
             context -> new GoogleAiStudioService(httpFactory.get(), serviceComponents.get()),
             context -> new GoogleVertexAiService(httpFactory.get(), serviceComponents.get()),
             context -> new MistralService(httpFactory.get(), serviceComponents.get()),

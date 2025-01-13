@@ -41,10 +41,10 @@ import org.elasticsearch.xpack.inference.services.amazonbedrock.completion.Amazo
 import org.elasticsearch.xpack.inference.services.amazonbedrock.embeddings.AmazonBedrockEmbeddingsServiceSettings;
 import org.elasticsearch.xpack.inference.services.anthropic.completion.AnthropicChatCompletionServiceSettings;
 import org.elasticsearch.xpack.inference.services.anthropic.completion.AnthropicChatCompletionTaskSettings;
-import org.elasticsearch.xpack.inference.services.azureaistudio.completion.AzureAiStudioChatCompletionServiceSettings;
-import org.elasticsearch.xpack.inference.services.azureaistudio.completion.AzureAiStudioChatCompletionTaskSettings;
-import org.elasticsearch.xpack.inference.services.azureaistudio.embeddings.AzureAiStudioEmbeddingsServiceSettings;
-import org.elasticsearch.xpack.inference.services.azureaistudio.embeddings.AzureAiStudioEmbeddingsTaskSettings;
+import org.elasticsearch.xpack.inference.services.azureaifoundry.completion.AzureAiFoundryChatCompletionServiceSettings;
+import org.elasticsearch.xpack.inference.services.azureaifoundry.completion.AzureAiFoundryChatCompletionTaskSettings;
+import org.elasticsearch.xpack.inference.services.azureaifoundry.embeddings.AzureAiFoundryEmbeddingsServiceSettings;
+import org.elasticsearch.xpack.inference.services.azureaifoundry.embeddings.AzureAiFoundryEmbeddingsTaskSettings;
 import org.elasticsearch.xpack.inference.services.azureopenai.AzureOpenAiSecretSettings;
 import org.elasticsearch.xpack.inference.services.azureopenai.completion.AzureOpenAiCompletionServiceSettings;
 import org.elasticsearch.xpack.inference.services.azureopenai.completion.AzureOpenAiCompletionTaskSettings;
@@ -127,7 +127,7 @@ public class InferenceNamedWriteablesProvider {
         addOpenAiNamedWriteables(namedWriteables);
         addCohereNamedWriteables(namedWriteables);
         addAzureOpenAiNamedWriteables(namedWriteables);
-        addAzureAiStudioNamedWriteables(namedWriteables);
+        addAzureAiFoundryNamedWriteables(namedWriteables);
         addGoogleAiStudioNamedWritables(namedWriteables);
         addIbmWatsonxNamedWritables(namedWriteables);
         addGoogleVertexAiNamedWriteables(namedWriteables);
@@ -198,34 +198,34 @@ public class InferenceNamedWriteablesProvider {
         // note - no task settings for Mistral embeddings...
     }
 
-    private static void addAzureAiStudioNamedWriteables(List<NamedWriteableRegistry.Entry> namedWriteables) {
+    private static void addAzureAiFoundryNamedWriteables(List<NamedWriteableRegistry.Entry> namedWriteables) {
         namedWriteables.add(
             new NamedWriteableRegistry.Entry(
                 ServiceSettings.class,
-                AzureAiStudioEmbeddingsServiceSettings.NAME,
-                AzureAiStudioEmbeddingsServiceSettings::new
+                AzureAiFoundryEmbeddingsServiceSettings.NAME,
+                AzureAiFoundryEmbeddingsServiceSettings::new
             )
         );
         namedWriteables.add(
             new NamedWriteableRegistry.Entry(
                 TaskSettings.class,
-                AzureAiStudioEmbeddingsTaskSettings.NAME,
-                AzureAiStudioEmbeddingsTaskSettings::new
+                AzureAiFoundryEmbeddingsTaskSettings.NAME,
+                AzureAiFoundryEmbeddingsTaskSettings::new
             )
         );
 
         namedWriteables.add(
             new NamedWriteableRegistry.Entry(
                 ServiceSettings.class,
-                AzureAiStudioChatCompletionServiceSettings.NAME,
-                AzureAiStudioChatCompletionServiceSettings::new
+                AzureAiFoundryChatCompletionServiceSettings.NAME,
+                AzureAiFoundryChatCompletionServiceSettings::new
             )
         );
         namedWriteables.add(
             new NamedWriteableRegistry.Entry(
                 TaskSettings.class,
-                AzureAiStudioChatCompletionTaskSettings.NAME,
-                AzureAiStudioChatCompletionTaskSettings::new
+                AzureAiFoundryChatCompletionTaskSettings.NAME,
+                AzureAiFoundryChatCompletionTaskSettings::new
             )
         );
     }

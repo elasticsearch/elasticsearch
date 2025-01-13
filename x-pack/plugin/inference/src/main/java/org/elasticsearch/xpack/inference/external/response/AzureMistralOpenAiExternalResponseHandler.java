@@ -32,7 +32,7 @@ import static org.elasticsearch.xpack.inference.external.http.retry.ResponseHand
 /**
  * A base class to use for external response handling.
  * <p>
- * This currently covers response handling for Azure AI Studio, however this pattern
+ * This currently covers response handling for Azure AI Foundry, however this pattern
  * can be used to simplify and refactor handling for Azure OpenAI and OpenAI responses.
  */
 public class AzureMistralOpenAiExternalResponseHandler extends BaseResponseHandler {
