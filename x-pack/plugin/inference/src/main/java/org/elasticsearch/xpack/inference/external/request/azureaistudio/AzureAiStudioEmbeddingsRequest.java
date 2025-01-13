@@ -36,13 +36,18 @@ public class AzureAiStudioEmbeddingsRequest extends AzureAiStudioRequest {
     public HttpRequest createHttpRequest() {
         HttpPost httpPost = new HttpPost(this.uri);
 
-        var user = embeddingsModel.getTaskSettings().user();
         var dimensions = embeddingsModel.getServiceSettings().dimensions();
         var dimensionsSetByUser = embeddingsModel.getServiceSettings().dimensionsSetByUser();
+        var deploymentType = embeddingsModel.getServiceSettings().deploymentType();
+        var model = embeddingsModel.getServiceSettings().model();
 
-        ByteArrayEntity byteEntity = new ByteArrayEntity(
-            Strings.toString(new AzureAiStudioEmbeddingsRequestEntity(truncationResult.input(), user, dimensions, dimensionsSetByUser))
-                .getBytes(StandardCharsets.UTF_8)
+        ByteArrayEntity byteEntity = new ByteArrayEntity(Strings.toString(
+            new AzureAiStudioEmbeddingsRequestEntity(deploymentType,
+                model,
+                truncationResult.input(),
+                dimensions,
+                dimensionsSetByUser))
+            .getBytes(StandardCharsets.UTF_8)
         );
         httpPost.setEntity(byteEntity);
 

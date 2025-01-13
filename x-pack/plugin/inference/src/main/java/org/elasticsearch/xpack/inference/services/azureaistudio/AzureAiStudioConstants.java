@@ -8,13 +8,11 @@
 package org.elasticsearch.xpack.inference.services.azureaistudio;
 
 public class AzureAiStudioConstants {
-    public static final String EMBEDDINGS_URI_PATH = "/v1/embeddings";
-    public static final String COMPLETIONS_URI_PATH = "/v1/chat/completions";
 
     // common service settings fields
     public static final String TARGET_FIELD = "target";
-    public static final String ENDPOINT_TYPE_FIELD = "endpoint_type";
-    public static final String PROVIDER_FIELD = "provider";
+    public static final String DEPLOYMENT_TYPE_FIELD = "deployment_type";
+    public static final String MODEL_FIELD = "model";
     public static final String API_KEY_FIELD = "api_key";
 
     // embeddings service and request settings
@@ -30,7 +28,6 @@ public class AzureAiStudioConstants {
     public static final String TOP_P_FIELD = "top_p";
     public static final String DO_SAMPLE_FIELD = "do_sample";
     public static final String MAX_TOKENS_FIELD = "max_tokens";
-    public static final String MAX_NEW_TOKENS_FIELD = "max_new_tokens";
 
     public static final Double MIN_TEMPERATURE_TOP_P = 0.0;
     public static final Double MAX_TEMPERATURE_TOP_P = 2.0;

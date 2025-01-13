@@ -18,7 +18,6 @@ import java.io.IOException;
 public class AzureAiStudioEmbeddingsResponseEntity extends BaseResponseEntity {
     @Override
     protected InferenceServiceResults fromResponse(Request request, HttpResult response) throws IOException {
-        // expected response type is the same as the Open AI Embeddings
         return OpenAiEmbeddingsResponseEntity.fromResponse(request, response);
     }
 }

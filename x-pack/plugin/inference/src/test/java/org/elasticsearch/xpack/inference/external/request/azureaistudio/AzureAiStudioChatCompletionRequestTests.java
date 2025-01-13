@@ -13,46 +13,49 @@ import org.elasticsearch.core.Nullable;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.xcontent.XContentType;
 import org.elasticsearch.xpack.inference.external.request.HttpRequest;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
+import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
 import org.elasticsearch.xpack.inference.services.azureaistudio.completion.AzureAiStudioChatCompletionModelTests;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.elasticsearch.xpack.inference.external.http.Utils.entityAsMap;
 import static org.elasticsearch.xpack.inference.external.request.azureopenai.AzureOpenAiUtils.API_KEY_HEADER;
+import static org.elasticsearch.xpack.inference.external.request.azureopenai.AzureOpenAiUtils.BEARER_PREFIX;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
 public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
 
-    public void testCreateRequest_WithOpenAiProviderTokenEndpoint_NoParams() throws IOException {
+    private static final String DEFAULT_TARGET = "http://target.local/completions";
+    private static final String DEFAULT_MODEL = "test-model";
+
+    public void testCreateRequest_WithModelInferenceServiceDeployment_NoParams() throws IOException {
         var request = createRequest(
-            "http://openaitarget.local",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+            DEFAULT_MODEL,
             "apikey",
             "abcd"
         );
         var httpRequest = request.createHttpRequest();
 
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://openaitarget.local");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.OPENAI, AzureAiStudioEndpointType.TOKEN, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(1));
+        assertThat(requestMap, aMapWithSize(2));
         assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
+        assertThat(requestMap.get("model"), is(DEFAULT_MODEL));
     }
 
-    public void testCreateRequest_WithOpenAiProviderTokenEndpoint_WithTemperatureParam() throws IOException {
+    public void testCreateRequest_WithModelInferenceServiceDeployment_WithTemperatureParam() throws IOException {
         var request = createRequest(
-            "http://openaitarget.local",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+            DEFAULT_MODEL,
             "apikey",
             1.0,
             null,
@@ -62,20 +65,21 @@ public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
         );
         var httpRequest = request.createHttpRequest();
 
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://openaitarget.local");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.OPENAI, AzureAiStudioEndpointType.TOKEN, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(2));
+        assertThat(requestMap, aMapWithSize(3));
         assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(requestMap.get("parameters"), is(getParameterMap(1.0, null, null, null)));
+        assertThat(requestMap.get("temperature"), is(1.0));
+        assertThat(requestMap.get("model"), is(DEFAULT_MODEL));
     }
 
-    public void testCreateRequest_WithOpenAiProviderTokenEndpoint_WithTopPParam() throws IOException {
+    public void testCreateRequest_WithModelInferenceServiceDeployment_WithTopPParam() throws IOException {
         var request = createRequest(
-            "http://openaitarget.local",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+            DEFAULT_MODEL,
             "apikey",
             null,
             2.0,
@@ -85,20 +89,21 @@ public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
         );
         var httpRequest = request.createHttpRequest();
 
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://openaitarget.local");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.OPENAI, AzureAiStudioEndpointType.TOKEN, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(2));
+        assertThat(requestMap, aMapWithSize(3));
         assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(requestMap.get("parameters"), is(getParameterMap(null, 2.0, null, null)));
+        assertThat(requestMap.get("top_p"), is(2.0));
+        assertThat(requestMap.get("model"), is(DEFAULT_MODEL));
     }
 
-    public void testCreateRequest_WithOpenAiProviderTokenEndpoint_WithDoSampleParam() throws IOException {
+    public void testCreateRequest_WithModelInferenceServiceDeployment_WithDoSampleParam() throws IOException {
         var request = createRequest(
-            "http://openaitarget.local",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+            DEFAULT_MODEL,
             "apikey",
             null,
             null,
@@ -108,20 +113,21 @@ public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
         );
         var httpRequest = request.createHttpRequest();
 
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://openaitarget.local");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.OPENAI, AzureAiStudioEndpointType.TOKEN, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(2));
+        assertThat(requestMap, aMapWithSize(3));
         assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(requestMap.get("parameters"), is(getParameterMap(null, null, true, null)));
+        assertThat(requestMap.get("do_sample"), is(true));
+        assertThat(requestMap.get("model"), is(DEFAULT_MODEL));
     }
 
-    public void testCreateRequest_WithOpenAiProviderTokenEndpoint_WithMaxNewTokensParam() throws IOException {
+    public void testCreateRequest_WithModelInferenceServiceDeployment_WithMaxTokensParam() throws IOException {
         var request = createRequest(
-            "http://openaitarget.local",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE,
+            DEFAULT_MODEL,
             "apikey",
             null,
             null,
@@ -131,38 +137,57 @@ public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
         );
         var httpRequest = request.createHttpRequest();
 
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://openaitarget.local");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.OPENAI, AzureAiStudioEndpointType.TOKEN, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(2));
+        assertThat(requestMap, aMapWithSize(3));
         assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(requestMap.get("parameters"), is(getParameterMap(null, null, null, 512)));
+        assertThat(requestMap.get("max_tokens"), is(512));
+        assertThat(requestMap.get("model"), is(DEFAULT_MODEL));
     }
 
-    public void testCreateRequest_WithCohereProviderTokenEndpoint_NoParams() throws IOException {
+    public void testCreateRequest_WithServerlessDeployment_NoParams() throws IOException {
         var request = createRequest(
-            "http://coheretarget.local",
-            AzureAiStudioProvider.COHERE,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.SERVERLESS_API,
+            null,
             "apikey",
             "abcd"
         );
         var httpRequest = request.createHttpRequest();
 
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://coheretarget.local/v1/chat/completions");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.COHERE, AzureAiStudioEndpointType.TOKEN, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.SERVERLESS_API, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
         assertThat(requestMap, aMapWithSize(1));
         assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
     }
 
-    public void testCreateRequest_WithCohereProviderTokenEndpoint_WithTemperatureParam() throws IOException {
+    public void testCreateRequest_WithServerlessDeployment_WithModel() throws IOException {
         var request = createRequest(
-            "http://coheretarget.local",
-            AzureAiStudioProvider.COHERE,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.SERVERLESS_API,
+            DEFAULT_MODEL,
+            "apikey",
+            "abcd"
+        );
+        var httpRequest = request.createHttpRequest();
+
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.SERVERLESS_API, "apikey");
+
+        var requestMap = entityAsMap(httpPost.getEntity().getContent());
+        assertThat(requestMap, aMapWithSize(1));
+        assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
+    }
+
+    public void testCreateRequest_WithServerlessDeployment_WithTemperatureParam() throws IOException {
+        var request = createRequest(
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.SERVERLESS_API,
+            null,
             "apikey",
             1.0,
             null,
@@ -172,20 +197,20 @@ public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
         );
         var httpRequest = request.createHttpRequest();
 
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://coheretarget.local/v1/chat/completions");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.COHERE, AzureAiStudioEndpointType.TOKEN, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.SERVERLESS_API, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
         assertThat(requestMap, aMapWithSize(2));
         assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(requestMap.get("parameters"), is(getParameterMap(1.0, null, null, null)));
+        assertThat(requestMap.get("temperature"), is(1.0));
     }
 
-    public void testCreateRequest_WithCohereProviderTokenEndpoint_WithTopPParam() throws IOException {
+    public void testCreateRequest_WithServerlessDeployment_WithTopPParam() throws IOException {
         var request = createRequest(
-            "http://coheretarget.local",
-            AzureAiStudioProvider.COHERE,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.SERVERLESS_API,
+            null,
             "apikey",
             null,
             2.0,
@@ -195,20 +220,19 @@ public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
         );
         var httpRequest = request.createHttpRequest();
 
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://coheretarget.local/v1/chat/completions");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.COHERE, AzureAiStudioEndpointType.TOKEN, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.SERVERLESS_API, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
         assertThat(requestMap, aMapWithSize(2));
         assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(requestMap.get("parameters"), is(getParameterMap(null, 2.0, null, null)));
     }
 
-    public void testCreateRequest_WithCohereProviderTokenEndpoint_WithDoSampleParam() throws IOException {
+    public void testCreateRequest_WithServerlessDeployment_WithDoSampleParam() throws IOException {
         var request = createRequest(
-            "http://coheretarget.local",
-            AzureAiStudioProvider.COHERE,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.SERVERLESS_API,
+            null,
             "apikey",
             null,
             null,
@@ -218,20 +242,20 @@ public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
         );
         var httpRequest = request.createHttpRequest();
 
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://coheretarget.local/v1/chat/completions");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.COHERE, AzureAiStudioEndpointType.TOKEN, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.SERVERLESS_API, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
         assertThat(requestMap, aMapWithSize(2));
         assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(requestMap.get("parameters"), is(getParameterMap(null, null, true, null)));
+        assertThat(requestMap.get("do_sample"), is(true));
     }
 
-    public void testCreateRequest_WithCohereProviderTokenEndpoint_WithMaxNewTokensParam() throws IOException {
+    public void testCreateRequest_WithServerlessDeployment_WithMaxTokensParam() throws IOException {
         var request = createRequest(
-            "http://coheretarget.local",
-            AzureAiStudioProvider.COHERE,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_TARGET,
+            AzureAiStudioDeploymentType.SERVERLESS_API,
+            null,
             "apikey",
             null,
             null,
@@ -241,146 +265,16 @@ public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
         );
         var httpRequest = request.createHttpRequest();
 
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://coheretarget.local/v1/chat/completions");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.COHERE, AzureAiStudioEndpointType.TOKEN, "apikey");
+        var httpPost = validateRequestUrlAndContentType(httpRequest, DEFAULT_TARGET);
+        validateRequestApiKey(httpPost, AzureAiStudioDeploymentType.SERVERLESS_API, "apikey");
 
         var requestMap = entityAsMap(httpPost.getEntity().getContent());
         assertThat(requestMap, aMapWithSize(2));
         assertThat(requestMap.get("messages"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(requestMap.get("parameters"), is(getParameterMap(null, null, null, 512)));
+        assertThat(requestMap.get("max_tokens"), is(512));
     }
 
-    public void testCreateRequest_WithMistralProviderRealtimeEndpoint_NoParams() throws IOException {
-        var request = createRequest(
-            "http://mistral.local/score",
-            AzureAiStudioProvider.MISTRAL,
-            AzureAiStudioEndpointType.REALTIME,
-            "apikey",
-            "abcd"
-        );
-        var httpRequest = request.createHttpRequest();
-
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://mistral.local/score");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.MISTRAL, AzureAiStudioEndpointType.REALTIME, "apikey");
-
-        var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(1));
-
-        @SuppressWarnings("unchecked")
-        var input_data = (Map<String, Object>) requestMap.get("input_data");
-        assertThat(input_data, aMapWithSize(1));
-        assertThat(input_data.get("input_string"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-    }
-
-    public void testCreateRequest_WithMistralProviderRealtimeEndpoint_WithTemperatureParam() throws IOException {
-        var request = createRequest(
-            "http://mistral.local/score",
-            AzureAiStudioProvider.MISTRAL,
-            AzureAiStudioEndpointType.REALTIME,
-            "apikey",
-            1.0,
-            null,
-            null,
-            null,
-            "abcd"
-        );
-        var httpRequest = request.createHttpRequest();
-
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://mistral.local/score");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.MISTRAL, AzureAiStudioEndpointType.REALTIME, "apikey");
-
-        var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(1));
-
-        @SuppressWarnings("unchecked")
-        var input_data = (Map<String, Object>) requestMap.get("input_data");
-        assertThat(input_data, aMapWithSize(2));
-        assertThat(input_data.get("input_string"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(input_data.get("parameters"), is(getParameterMap(1.0, null, null, null)));
-    }
-
-    public void testCreateRequest_WithMistralProviderRealtimeEndpoint_WithTopPParam() throws IOException {
-        var request = createRequest(
-            "http://mistral.local/score",
-            AzureAiStudioProvider.MISTRAL,
-            AzureAiStudioEndpointType.REALTIME,
-            "apikey",
-            null,
-            2.0,
-            null,
-            null,
-            "abcd"
-        );
-        var httpRequest = request.createHttpRequest();
-
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://mistral.local/score");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.MISTRAL, AzureAiStudioEndpointType.REALTIME, "apikey");
-
-        var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(1));
-
-        @SuppressWarnings("unchecked")
-        var input_data = (Map<String, Object>) requestMap.get("input_data");
-        assertThat(input_data, aMapWithSize(2));
-        assertThat(input_data.get("input_string"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(input_data.get("parameters"), is(getParameterMap(null, 2.0, null, null)));
-    }
-
-    public void testCreateRequest_WithMistralProviderRealtimeEndpoint_WithDoSampleParam() throws IOException {
-        var request = createRequest(
-            "http://mistral.local/score",
-            AzureAiStudioProvider.MISTRAL,
-            AzureAiStudioEndpointType.REALTIME,
-            "apikey",
-            null,
-            null,
-            true,
-            null,
-            "abcd"
-        );
-        var httpRequest = request.createHttpRequest();
-
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://mistral.local/score");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.MISTRAL, AzureAiStudioEndpointType.REALTIME, "apikey");
-
-        var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(1));
-
-        @SuppressWarnings("unchecked")
-        var input_data = (Map<String, Object>) requestMap.get("input_data");
-        assertThat(input_data, aMapWithSize(2));
-        assertThat(input_data.get("input_string"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(input_data.get("parameters"), is(getParameterMap(null, null, true, null)));
-    }
-
-    public void testCreateRequest_WithMistralProviderRealtimeEndpoint_WithMaxNewTokensParam() throws IOException {
-        var request = createRequest(
-            "http://mistral.local/score",
-            AzureAiStudioProvider.MISTRAL,
-            AzureAiStudioEndpointType.REALTIME,
-            "apikey",
-            null,
-            null,
-            null,
-            512,
-            "abcd"
-        );
-        var httpRequest = request.createHttpRequest();
-
-        var httpPost = validateRequestUrlAndContentType(httpRequest, "http://mistral.local/score");
-        validateRequestApiKey(httpPost, AzureAiStudioProvider.MISTRAL, AzureAiStudioEndpointType.REALTIME, "apikey");
-
-        var requestMap = entityAsMap(httpPost.getEntity().getContent());
-        assertThat(requestMap, aMapWithSize(1));
-
-        @SuppressWarnings("unchecked")
-        var input_data = (Map<String, Object>) requestMap.get("input_data");
-        assertThat(input_data, aMapWithSize(2));
-        assertThat(input_data.get("input_string"), is(List.of(Map.of("role", "user", "content", "abcd"))));
-        assertThat(input_data.get("parameters"), is(getParameterMap(null, null, null, 512)));
-    }
-
-    private HttpPost validateRequestUrlAndContentType(HttpRequest request, String expectedUrl) throws IOException {
+    private HttpPost validateRequestUrlAndContentType(HttpRequest request, String expectedUrl) {
         assertThat(request.httpRequestBase(), instanceOf(HttpPost.class));
         var httpPost = (HttpPost) request.httpRequestBase();
         assertThat(httpPost.getURI().toString(), is(expectedUrl));
@@ -388,78 +282,50 @@ public class AzureAiStudioChatCompletionRequestTests extends ESTestCase {
         return httpPost;
     }
 
-    private void validateRequestApiKey(
-        HttpPost httpPost,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
-        String apiKey
+    private void validateRequestApiKey(HttpPost httpPost, AzureAiStudioDeploymentType deploymentType, String apiKey
     ) {
-        if (endpointType == AzureAiStudioEndpointType.TOKEN) {
-            if (provider == AzureAiStudioProvider.OPENAI) {
-                assertThat(httpPost.getLastHeader(API_KEY_HEADER).getValue(), is(apiKey));
-            } else {
-                assertThat(httpPost.getLastHeader(HttpHeaders.AUTHORIZATION).getValue(), is(apiKey));
-            }
+        if (deploymentType == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE) {
+            assertThat(httpPost.getLastHeader(API_KEY_HEADER).getValue(), is(apiKey));
+        } else if (deploymentType == AzureAiStudioDeploymentType.SERVERLESS_API) {
+            assertThat(httpPost.getLastHeader(HttpHeaders.AUTHORIZATION).getValue(), is(BEARER_PREFIX + apiKey));
         } else {
-            assertThat(httpPost.getLastHeader(HttpHeaders.AUTHORIZATION).getValue(), is("Bearer " + apiKey));
+            fail("Invalid deployment type");
         }
-    }
-
-    private Map<String, Object> getParameterMap(
-        @Nullable Double temperature,
-        @Nullable Double topP,
-        @Nullable Boolean doSample,
-        @Nullable Integer maxNewTokens
-    ) {
-        var map = new HashMap<String, Object>();
-        if (temperature != null) {
-            map.put("temperature", temperature);
-        }
-        if (topP != null) {
-            map.put("top_p", topP);
-        }
-        if (doSample != null) {
-            map.put("do_sample", doSample);
-        }
-        if (maxNewTokens != null) {
-            map.put("max_new_tokens", maxNewTokens);
-        }
-        return map;
     }
 
     public static AzureAiStudioChatCompletionRequest createRequest(
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        @Nullable String model,
         String apiKey,
         String input
     ) {
-        return createRequest(target, provider, endpointType, apiKey, null, null, null, null, input);
+        return createRequest(target, deploymentType, model, apiKey, null, null, null, null, input);
     }
 
     public static AzureAiStudioChatCompletionRequest createRequest(
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        @Nullable String model,
         String apiKey,
         @Nullable Double temperature,
         @Nullable Double topP,
         @Nullable Boolean doSample,
-        @Nullable Integer maxNewTokens,
+        @Nullable Integer maxTokens,
         String input
     ) {
-        var model = AzureAiStudioChatCompletionModelTests.createModel(
+        var completionModel = AzureAiStudioChatCompletionModelTests.createModel(
             "id",
             target,
-            provider,
-            endpointType,
+            deploymentType,
+            model,
             apiKey,
             temperature,
             topP,
             doSample,
-            maxNewTokens,
+            maxTokens,
             null
         );
-        return new AzureAiStudioChatCompletionRequest(model, List.of(input), false);
+        return new AzureAiStudioChatCompletionRequest(completionModel, List.of(input), false);
     }
 }

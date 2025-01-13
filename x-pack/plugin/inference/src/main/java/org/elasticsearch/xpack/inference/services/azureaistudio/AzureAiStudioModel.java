@@ -32,8 +32,8 @@ import java.util.Objects;
 public abstract class AzureAiStudioModel extends Model {
     protected String target;
     protected URI uri;
-    protected AzureAiStudioProvider provider;
-    protected AzureAiStudioEndpointType endpointType;
+    protected AzureAiStudioDeploymentType deploymentType;
+    protected String model;
     protected RateLimitSettings rateLimitSettings;
 
     public AzureAiStudioModel(AzureAiStudioModel model, TaskSettings taskSettings, RateLimitSettings rateLimitSettings) {
@@ -54,8 +54,12 @@ public abstract class AzureAiStudioModel extends Model {
 
     private void setPropertiesFromServiceSettings(AzureAiStudioServiceSettings serviceSettings) {
         this.target = serviceSettings.target;
-        this.provider = serviceSettings.provider();
-        this.endpointType = serviceSettings.endpointType();
+        this.deploymentType = serviceSettings.deploymentType;
+        if (serviceSettings.deploymentType == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE) {
+            this.model = serviceSettings.model;
+        } else {
+            this.model = null;
+        }
         this.rateLimitSettings = serviceSettings.rateLimitSettings();
         try {
             this.uri = getEndpointUri();
@@ -70,16 +74,16 @@ public abstract class AzureAiStudioModel extends Model {
         return this.target;
     }
 
+    public AzureAiStudioDeploymentType deploymentType() {
+        return this.deploymentType;
+    }
+
+    public String model() {
+        return this.model;
+    }
+
     public RateLimitSettings rateLimitSettings() {
         return this.rateLimitSettings;
-    }
-
-    public AzureAiStudioProvider provider() {
-        return this.provider;
-    }
-
-    public AzureAiStudioEndpointType endpointType() {
-        return this.endpointType;
     }
 
     public URI uri() {

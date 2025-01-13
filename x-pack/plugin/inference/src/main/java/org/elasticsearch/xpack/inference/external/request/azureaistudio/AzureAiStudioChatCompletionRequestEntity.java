@@ -10,74 +10,51 @@ package org.elasticsearch.xpack.inference.external.request.azureaistudio;
 import org.elasticsearch.core.Nullable;
 import org.elasticsearch.xcontent.ToXContentObject;
 import org.elasticsearch.xcontent.XContentBuilder;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
+import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
-import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.INPUT_DATA_OBJECT;
-import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.INPUT_STRING_ARRAY;
 import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.MESSAGES_ARRAY;
 import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.MESSAGE_CONTENT;
-import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.PARAMETERS_OBJECT;
 import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.ROLE;
 import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.STREAM;
 import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.USER_ROLE;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MODEL_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DO_SAMPLE_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_NEW_TOKENS_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_TOKENS_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TEMPERATURE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TOP_P_FIELD;
 
 public record AzureAiStudioChatCompletionRequestEntity(
     List<String> messages,
-    AzureAiStudioEndpointType endpointType,
+    AzureAiStudioDeploymentType deploymentType,
+    @Nullable String model,
     @Nullable Double temperature,
     @Nullable Double topP,
     @Nullable Boolean doSample,
-    @Nullable Integer maxNewTokens,
+    @Nullable Integer maxTokens,
     boolean stream
 ) implements ToXContentObject {
 
     public AzureAiStudioChatCompletionRequestEntity {
         Objects.requireNonNull(messages);
-        Objects.requireNonNull(endpointType);
+        Objects.requireNonNull(deploymentType);
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
 
-        if (endpointType == AzureAiStudioEndpointType.TOKEN) {
-            createPayAsYouGoRequest(builder, params);
-        } else {
-            createRealtimeRequest(builder, params);
+        if (deploymentType == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE) {
+            builder.field(MODEL_FIELD, model);
         }
 
         if (stream) {
             builder.field(STREAM, true);
         }
 
-        builder.endObject();
-        return builder;
-    }
-
-    private void createRealtimeRequest(XContentBuilder builder, Params params) throws IOException {
-        builder.startObject(INPUT_DATA_OBJECT);
-        builder.startArray(INPUT_STRING_ARRAY);
-
-        for (String message : messages) {
-            addMessageContentObject(builder, message);
-        }
-
-        builder.endArray();
-
-        addRequestParameters(builder);
-
-        builder.endObject();
-    }
-
-    private void createPayAsYouGoRequest(XContentBuilder builder, Params params) throws IOException {
         builder.startArray(MESSAGES_ARRAY);
 
         for (String message : messages) {
@@ -87,6 +64,10 @@ public record AzureAiStudioChatCompletionRequestEntity(
         builder.endArray();
 
         addRequestParameters(builder);
+
+        builder.endObject();
+
+        return builder;
     }
 
     private void addMessageContentObject(XContentBuilder builder, String message) throws IOException {
@@ -99,11 +80,9 @@ public record AzureAiStudioChatCompletionRequestEntity(
     }
 
     private void addRequestParameters(XContentBuilder builder) throws IOException {
-        if (temperature == null && topP == null && doSample == null && maxNewTokens == null) {
+        if (temperature == null && topP == null && doSample == null && maxTokens == null) {
             return;
         }
-
-        builder.startObject(PARAMETERS_OBJECT);
 
         if (temperature != null) {
             builder.field(TEMPERATURE_FIELD, temperature);
@@ -117,10 +96,9 @@ public record AzureAiStudioChatCompletionRequestEntity(
             builder.field(DO_SAMPLE_FIELD, doSample);
         }
 
-        if (maxNewTokens != null) {
-            builder.field(MAX_NEW_TOKENS_FIELD, maxNewTokens);
+        if (maxTokens != null) {
+            builder.field(MAX_TOKENS_FIELD, maxTokens);
         }
 
-        builder.endObject();
     }
 }

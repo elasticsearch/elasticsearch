@@ -16,8 +16,7 @@ import org.elasticsearch.core.Nullable;
 import org.elasticsearch.xcontent.ToXContent;
 import org.elasticsearch.xcontent.XContentBuilder;
 import org.elasticsearch.xpack.inference.services.ConfigurationParseContext;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
+import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
 import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioServiceSettings;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettings;
 
@@ -53,11 +52,11 @@ public class AzureAiStudioChatCompletionServiceSettings extends AzureAiStudioSer
 
     public AzureAiStudioChatCompletionServiceSettings(
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        @Nullable String model,
         @Nullable RateLimitSettings rateLimitSettings
     ) {
-        super(target, provider, endpointType, rateLimitSettings);
+        super(target, deploymentType, model, rateLimitSettings);
     }
 
     public AzureAiStudioChatCompletionServiceSettings(StreamInput in) throws IOException {
@@ -67,8 +66,8 @@ public class AzureAiStudioChatCompletionServiceSettings extends AzureAiStudioSer
     private AzureAiStudioChatCompletionServiceSettings(AzureAiStudioCompletionCommonFields fields) {
         this(
             fields.baseCommonFields.target(),
-            fields.baseCommonFields.provider(),
-            fields.baseCommonFields.endpointType(),
+            fields.baseCommonFields.deploymentType(),
+            fields.baseCommonFields.model(),
             fields.baseCommonFields.rateLimitSettings()
         );
     }
@@ -111,13 +110,13 @@ public class AzureAiStudioChatCompletionServiceSettings extends AzureAiStudioSer
         AzureAiStudioChatCompletionServiceSettings that = (AzureAiStudioChatCompletionServiceSettings) o;
 
         return Objects.equals(target, that.target)
-            && Objects.equals(provider, that.provider)
-            && Objects.equals(endpointType, that.endpointType)
+            && Objects.equals(deploymentType, that.deploymentType)
+            && Objects.equals(model, that.model)
             && Objects.equals(rateLimitSettings, that.rateLimitSettings);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(target, provider, endpointType, rateLimitSettings);
+        return Objects.hash(target, deploymentType, model, rateLimitSettings);
     }
 }

@@ -20,8 +20,7 @@ import org.elasticsearch.xcontent.ToXContent;
 import org.elasticsearch.xcontent.XContentBuilder;
 import org.elasticsearch.xpack.inference.services.ConfigurationParseContext;
 import org.elasticsearch.xpack.inference.services.ServiceUtils;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
+import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
 import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioServiceSettings;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettings;
 
@@ -100,15 +99,15 @@ public class AzureAiStudioEmbeddingsServiceSettings extends AzureAiStudioService
 
     public AzureAiStudioEmbeddingsServiceSettings(
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        @Nullable String model,
         @Nullable Integer dimensions,
         Boolean dimensionsSetByUser,
         @Nullable Integer maxInputTokens,
         @Nullable SimilarityMeasure similarity,
         RateLimitSettings rateLimitSettings
     ) {
-        super(target, provider, endpointType, rateLimitSettings);
+        super(target, deploymentType, model, rateLimitSettings);
         this.dimensions = dimensions;
         this.dimensionsSetByUser = dimensionsSetByUser;
         this.maxInputTokens = maxInputTokens;
@@ -126,8 +125,8 @@ public class AzureAiStudioEmbeddingsServiceSettings extends AzureAiStudioService
     private AzureAiStudioEmbeddingsServiceSettings(AzureAiStudioEmbeddingCommonFields fields) {
         this(
             fields.baseCommonFields.target(),
-            fields.baseCommonFields.provider(),
-            fields.baseCommonFields.endpointType(),
+            fields.baseCommonFields.deploymentType(),
+            fields.baseCommonFields.model(),
             fields.dimensions(),
             fields.dimensionsSetByUser(),
             fields.maxInputTokens(),
@@ -221,8 +220,8 @@ public class AzureAiStudioEmbeddingsServiceSettings extends AzureAiStudioService
         AzureAiStudioEmbeddingsServiceSettings that = (AzureAiStudioEmbeddingsServiceSettings) o;
 
         return Objects.equals(target, that.target)
-            && Objects.equals(provider, that.provider)
-            && Objects.equals(endpointType, that.endpointType)
+            && Objects.equals(deploymentType, that.deploymentType)
+            && Objects.equals(model, that.model)
             && Objects.equals(dimensions, that.dimensions)
             && Objects.equals(dimensionsSetByUser, that.dimensionsSetByUser)
             && Objects.equals(maxInputTokens, that.maxInputTokens)
@@ -232,6 +231,7 @@ public class AzureAiStudioEmbeddingsServiceSettings extends AzureAiStudioService
 
     @Override
     public int hashCode() {
-        return Objects.hash(target, provider, endpointType, dimensions, dimensionsSetByUser, maxInputTokens, similarity, rateLimitSettings);
+        return Objects.hash(target, deploymentType, model, dimensions,
+            dimensionsSetByUser, maxInputTokens, similarity, rateLimitSettings);
     }
 }

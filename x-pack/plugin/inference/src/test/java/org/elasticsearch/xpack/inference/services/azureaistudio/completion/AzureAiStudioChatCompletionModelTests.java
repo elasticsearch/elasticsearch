@@ -11,12 +11,9 @@ import org.elasticsearch.common.settings.SecureString;
 import org.elasticsearch.core.Nullable;
 import org.elasticsearch.inference.TaskType;
 import org.elasticsearch.test.ESTestCase;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
+import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
 import org.elasticsearch.xpack.inference.services.settings.DefaultSecretSettings;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettings;
-
-import java.net.URISyntaxException;
 
 import static org.elasticsearch.xpack.inference.services.azureaistudio.completion.AzureAiStudioChatCompletionTaskSettingsTests.getTaskSettingsMap;
 import static org.hamcrest.Matchers.is;
@@ -24,12 +21,15 @@ import static org.hamcrest.Matchers.sameInstance;
 
 public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
 
+    private static final AzureAiStudioDeploymentType DEFAULT_DEPLOYMENT_TYPE = AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE;
+    private static final String DEFAULT_MODEL = "test-model";
+
     public void testOverrideWith_OverridesWithoutValues() {
         var model = createModel(
             "id",
             "target",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_DEPLOYMENT_TYPE,
+            DEFAULT_MODEL,
             "apikey",
             1.0,
             2.0,
@@ -47,8 +47,8 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
         var model = createModel(
             "id",
             "target",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_DEPLOYMENT_TYPE,
+            DEFAULT_MODEL,
             "apikey",
             1.0,
             null,
@@ -64,8 +64,8 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
                 createModel(
                     "id",
                     "target",
-                    AzureAiStudioProvider.OPENAI,
-                    AzureAiStudioEndpointType.TOKEN,
+                    DEFAULT_DEPLOYMENT_TYPE,
+                    DEFAULT_MODEL,
                     "apikey",
                     0.5,
                     null,
@@ -81,8 +81,8 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
         var model = createModel(
             "id",
             "target",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_DEPLOYMENT_TYPE,
+            DEFAULT_MODEL,
             "apikey",
             null,
             0.8,
@@ -98,8 +98,8 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
                 createModel(
                     "id",
                     "target",
-                    AzureAiStudioProvider.OPENAI,
-                    AzureAiStudioEndpointType.TOKEN,
+                    DEFAULT_DEPLOYMENT_TYPE,
+                    DEFAULT_MODEL,
                     "apikey",
                     null,
                     0.5,
@@ -115,8 +115,8 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
         var model = createModel(
             "id",
             "target",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_DEPLOYMENT_TYPE,
+            DEFAULT_MODEL,
             "apikey",
             null,
             null,
@@ -132,8 +132,8 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
                 createModel(
                     "id",
                     "target",
-                    AzureAiStudioProvider.OPENAI,
-                    AzureAiStudioEndpointType.TOKEN,
+                    DEFAULT_DEPLOYMENT_TYPE,
+                    DEFAULT_MODEL,
                     "apikey",
                     null,
                     null,
@@ -149,8 +149,8 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
         var model = createModel(
             "id",
             "target",
-            AzureAiStudioProvider.OPENAI,
-            AzureAiStudioEndpointType.TOKEN,
+            DEFAULT_DEPLOYMENT_TYPE,
+            DEFAULT_MODEL,
             "apikey",
             null,
             null,
@@ -166,8 +166,8 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
                 createModel(
                     "id",
                     "target",
-                    AzureAiStudioProvider.OPENAI,
-                    AzureAiStudioEndpointType.TOKEN,
+                    DEFAULT_DEPLOYMENT_TYPE,
+                    DEFAULT_MODEL,
                     "apikey",
                     null,
                     null,
@@ -179,42 +179,21 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
         );
     }
 
-    public void testSetsProperUrlForOpenAITokenModel() throws URISyntaxException {
-        var model = createModel("id", "http://testtarget.local", AzureAiStudioProvider.OPENAI, AzureAiStudioEndpointType.TOKEN, "apikey");
-        assertThat(model.getEndpointUri().toString(), is("http://testtarget.local"));
-    }
-
-    public void testSetsProperUrlForNonOpenAiTokenModel() throws URISyntaxException {
-        var model = createModel("id", "http://testtarget.local", AzureAiStudioProvider.COHERE, AzureAiStudioEndpointType.TOKEN, "apikey");
-        assertThat(model.getEndpointUri().toString(), is("http://testtarget.local/v1/chat/completions"));
-    }
-
-    public void testSetsProperUrlForRealtimeEndpointModel() throws URISyntaxException {
-        var model = createModel(
-            "id",
-            "http://testtarget.local",
-            AzureAiStudioProvider.MISTRAL,
-            AzureAiStudioEndpointType.REALTIME,
-            "apikey"
-        );
-        assertThat(model.getEndpointUri().toString(), is("http://testtarget.local"));
-    }
-
     public static AzureAiStudioChatCompletionModel createModel(
         String id,
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        String deploymentName,
         String apiKey
     ) {
-        return createModel(id, target, provider, endpointType, apiKey, null, null, null, null, null);
+        return createModel(id, target, deploymentType, deploymentName, apiKey, null, null, null, null, null);
     }
 
     public static AzureAiStudioChatCompletionModel createModel(
         String id,
         String target,
-        AzureAiStudioProvider provider,
-        AzureAiStudioEndpointType endpointType,
+        AzureAiStudioDeploymentType deploymentType,
+        @Nullable String deploymentName,
         String apiKey,
         @Nullable Double temperature,
         @Nullable Double topP,
@@ -226,7 +205,7 @@ public class AzureAiStudioChatCompletionModelTests extends ESTestCase {
             id,
             TaskType.COMPLETION,
             "azureaistudio",
-            new AzureAiStudioChatCompletionServiceSettings(target, provider, endpointType, rateLimitSettings),
+            new AzureAiStudioChatCompletionServiceSettings(target, deploymentType, deploymentName, rateLimitSettings),
             new AzureAiStudioChatCompletionTaskSettings(temperature, topP, doSample, maxNewTokens),
             new DefaultSecretSettings(new SecureString(apiKey.toCharArray()))
         );

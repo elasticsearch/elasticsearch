@@ -7,16 +7,14 @@
 
 package org.elasticsearch.xpack.inference.external.request.azureaistudio;
 
-import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.elasticsearch.xpack.inference.external.request.Request;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioEndpointType;
+import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioDeploymentType;
 import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioModel;
-import org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioProvider;
+import org.elasticsearch.xpack.inference.external.request.RequestUtils;
 
 import java.net.URI;
 
-import static org.elasticsearch.xpack.inference.external.request.RequestUtils.createAuthBearerHeader;
 import static org.elasticsearch.xpack.inference.external.request.azureaistudio.AzureAiStudioRequestFields.API_KEY_HEADER;
 
 public abstract class AzureAiStudioRequest implements Request {
@@ -24,27 +22,20 @@ public abstract class AzureAiStudioRequest implements Request {
     protected final URI uri;
     protected final String inferenceEntityId;
 
-    protected final boolean isOpenAiRequest;
-    protected final boolean isRealtimeEndpoint;
-
     protected AzureAiStudioRequest(AzureAiStudioModel model) {
         this.uri = model.uri();
         this.inferenceEntityId = model.getInferenceEntityId();
-        this.isOpenAiRequest = (model.provider() == AzureAiStudioProvider.OPENAI);
-        this.isRealtimeEndpoint = (model.endpointType() == AzureAiStudioEndpointType.REALTIME);
     }
 
     protected void setAuthHeader(HttpEntityEnclosingRequestBase request, AzureAiStudioModel model) {
         var apiKey = model.getSecretSettings().apiKey();
-
-        if (isOpenAiRequest) {
+        if (model.deploymentType() == AzureAiStudioDeploymentType.AZURE_AI_MODEL_INFERENCE_SERVICE) {
             request.setHeader(API_KEY_HEADER, apiKey.toString());
+        } else if (model.deploymentType() == AzureAiStudioDeploymentType.SERVERLESS_API) {
+            request.setHeader(RequestUtils.createAuthBearerHeader(apiKey));
         } else {
-            if (isRealtimeEndpoint) {
-                request.setHeader(createAuthBearerHeader(apiKey));
-            } else {
-                request.setHeader(HttpHeaders.AUTHORIZATION, apiKey.toString());
-            }
+            // default to api-key header
+            request.setHeader(API_KEY_HEADER, apiKey.toString());
         }
     }
 

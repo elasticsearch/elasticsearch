@@ -28,13 +28,13 @@ import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractOpt
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractOptionalDoubleInRange;
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractOptionalPositiveInteger;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.DO_SAMPLE_FIELD;
-import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_NEW_TOKENS_FIELD;
+import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.MAX_TOKENS_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TEMPERATURE_FIELD;
 import static org.elasticsearch.xpack.inference.services.azureaistudio.AzureAiStudioConstants.TOP_P_FIELD;
 
 public class AzureAiStudioChatCompletionTaskSettings implements TaskSettings {
     public static final String NAME = "azure_ai_studio_chat_completion_task_settings";
-    public static final Integer DEFAULT_MAX_NEW_TOKENS = 64;
+    public static final Integer DEFAULT_MAX_TOKENS = 64;
 
     public static AzureAiStudioChatCompletionTaskSettings fromMap(Map<String, Object> map) {
         ValidationException validationException = new ValidationException();
@@ -58,7 +58,7 @@ public class AzureAiStudioChatCompletionTaskSettings implements TaskSettings {
         var doSample = extractOptionalBoolean(map, DO_SAMPLE_FIELD, validationException);
         var maxNewTokens = extractOptionalPositiveInteger(
             map,
-            MAX_NEW_TOKENS_FIELD,
+            MAX_TOKENS_FIELD,
             ModelConfigurations.TASK_SETTINGS,
             validationException
         );
@@ -85,35 +85,35 @@ public class AzureAiStudioChatCompletionTaskSettings implements TaskSettings {
         var temperature = requestSettings.temperature() == null ? originalSettings.temperature() : requestSettings.temperature();
         var topP = requestSettings.topP() == null ? originalSettings.topP() : requestSettings.topP();
         var doSample = requestSettings.doSample() == null ? originalSettings.doSample() : requestSettings.doSample();
-        var maxNewTokens = requestSettings.maxNewTokens() == null ? originalSettings.maxNewTokens() : requestSettings.maxNewTokens();
+        var maxTokens = requestSettings.maxTokens() == null ? originalSettings.maxTokens() : requestSettings.maxTokens();
 
-        return new AzureAiStudioChatCompletionTaskSettings(temperature, topP, doSample, maxNewTokens);
+        return new AzureAiStudioChatCompletionTaskSettings(temperature, topP, doSample, maxTokens);
     }
 
     public AzureAiStudioChatCompletionTaskSettings(
         @Nullable Double temperature,
         @Nullable Double topP,
         @Nullable Boolean doSample,
-        @Nullable Integer maxNewTokens
+        @Nullable Integer maxTokens
     ) {
 
         this.temperature = temperature;
         this.topP = topP;
         this.doSample = doSample;
-        this.maxNewTokens = maxNewTokens;
+        this.maxTokens = maxTokens;
     }
 
     public AzureAiStudioChatCompletionTaskSettings(StreamInput in) throws IOException {
         this.temperature = in.readOptionalDouble();
         this.topP = in.readOptionalDouble();
         this.doSample = in.readOptionalBoolean();
-        this.maxNewTokens = in.readOptionalInt();
+        this.maxTokens = in.readOptionalInt();
     }
 
     private final Double temperature;
     private final Double topP;
     private final Boolean doSample;
-    private final Integer maxNewTokens;
+    private final Integer maxTokens;
 
     public Double temperature() {
         return temperature;
@@ -127,12 +127,8 @@ public class AzureAiStudioChatCompletionTaskSettings implements TaskSettings {
         return doSample;
     }
 
-    public Integer maxNewTokens() {
-        return maxNewTokens;
-    }
-
-    public boolean areAnyParametersAvailable() {
-        return temperature != null && topP != null && doSample != null && maxNewTokens != null;
+    public Integer maxTokens() {
+        return maxTokens;
     }
 
     @Override
@@ -147,7 +143,7 @@ public class AzureAiStudioChatCompletionTaskSettings implements TaskSettings {
 
     @Override
     public boolean isEmpty() {
-        return temperature == null && topP == null && doSample == null && maxNewTokens == null;
+        return temperature == null && topP == null && doSample == null && maxTokens == null;
     }
 
     @Override
@@ -155,7 +151,7 @@ public class AzureAiStudioChatCompletionTaskSettings implements TaskSettings {
         out.writeOptionalDouble(temperature);
         out.writeOptionalDouble(topP);
         out.writeOptionalBoolean(doSample);
-        out.writeOptionalInt(maxNewTokens);
+        out.writeOptionalInt(maxTokens);
     }
 
     @Override
@@ -171,8 +167,8 @@ public class AzureAiStudioChatCompletionTaskSettings implements TaskSettings {
         if (doSample != null) {
             builder.field(DO_SAMPLE_FIELD, doSample);
         }
-        if (maxNewTokens != null) {
-            builder.field(MAX_NEW_TOKENS_FIELD, maxNewTokens);
+        if (maxTokens != null) {
+            builder.field(MAX_TOKENS_FIELD, maxTokens);
         }
 
         builder.endObject();
@@ -188,8 +184,8 @@ public class AzureAiStudioChatCompletionTaskSettings implements TaskSettings {
             + topP
             + ", doSample="
             + doSample
-            + ", maxNewTokens="
-            + maxNewTokens
+            + ", maxTokens="
+            + maxTokens
             + '}';
     }
 
@@ -201,12 +197,12 @@ public class AzureAiStudioChatCompletionTaskSettings implements TaskSettings {
         return Objects.equals(temperature, that.temperature)
             && Objects.equals(topP, that.topP)
             && Objects.equals(doSample, that.doSample)
-            && Objects.equals(maxNewTokens, that.maxNewTokens);
+            && Objects.equals(maxTokens, that.maxTokens);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(temperature, topP, doSample, maxNewTokens);
+        return Objects.hash(temperature, topP, doSample, maxTokens);
     }
 
     @Override
