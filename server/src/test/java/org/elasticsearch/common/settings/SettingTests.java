@@ -1509,18 +1509,11 @@ public class SettingTests extends ESTestCase {
     }
 
     public void testDeprecationPropertyValidation() {
-        expectThrows(
+        IllegalArgumentException e = expectThrows(
             IllegalArgumentException.class,
             () -> Setting.boolSetting("a.bool.setting", true, Property.Deprecated, Property.DeprecatedWarning)
         );
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> Setting.boolSetting("a.bool.setting", true, Property.Deprecated, Property.IndexSettingDeprecatedInV7AndRemovedInV8)
-        );
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> Setting.boolSetting("a.bool.setting", true, Property.DeprecatedWarning, Property.IndexSettingDeprecatedInV7AndRemovedInV8)
-        );
+        assertThat(e.getMessage(), containsString("setting [a.bool.setting] must be at most one of "));
     }
 
     public void testIntSettingBounds() {
