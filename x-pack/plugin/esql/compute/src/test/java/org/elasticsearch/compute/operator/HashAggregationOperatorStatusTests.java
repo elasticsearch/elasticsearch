@@ -16,7 +16,7 @@ import static org.hamcrest.Matchers.equalTo;
 
 public class HashAggregationOperatorStatusTests extends AbstractWireSerializingTestCase<HashAggregationOperator.Status> {
     public static HashAggregationOperator.Status simple() {
-        return new HashAggregationOperator.Status(500012, 200012, 123);
+        return new HashAggregationOperator.Status(500012, 200012, 123, 3);
     }
 
     public static String simpleToJson() {
@@ -26,7 +26,8 @@ public class HashAggregationOperatorStatusTests extends AbstractWireSerializingT
               "hash_time" : "500micros",
               "aggregation_nanos" : 200012,
               "aggregation_time" : "200micros",
-              "pages_processed" : 123
+              "pages_processed" : 123,
+              "pages_emitted" : 3
             }""";
     }
 
@@ -41,7 +42,12 @@ public class HashAggregationOperatorStatusTests extends AbstractWireSerializingT
 
     @Override
     public HashAggregationOperator.Status createTestInstance() {
-        return new HashAggregationOperator.Status(randomNonNegativeLong(), randomNonNegativeLong(), randomNonNegativeInt());
+        return new HashAggregationOperator.Status(
+            randomNonNegativeLong(),
+            randomNonNegativeLong(),
+            randomNonNegativeInt(),
+            randomNonNegativeInt()
+        );
     }
 
     @Override
@@ -49,12 +55,14 @@ public class HashAggregationOperatorStatusTests extends AbstractWireSerializingT
         long hashNanos = instance.hashNanos();
         long aggregationNanos = instance.aggregationNanos();
         int pagesProcessed = instance.pagesProcessed();
-        switch (between(0, 2)) {
+        int pagesEmitted = instance.pagesEmitted();
+        switch (between(0, 3)) {
             case 0 -> hashNanos = randomValueOtherThan(hashNanos, ESTestCase::randomNonNegativeLong);
             case 1 -> aggregationNanos = randomValueOtherThan(aggregationNanos, ESTestCase::randomNonNegativeLong);
             case 2 -> pagesProcessed = randomValueOtherThan(pagesProcessed, ESTestCase::randomNonNegativeInt);
+            case 3 -> pagesEmitted = randomValueOtherThan(pagesEmitted, ESTestCase::randomNonNegativeInt);
             default -> throw new UnsupportedOperationException();
         }
-        return new HashAggregationOperator.Status(hashNanos, aggregationNanos, pagesProcessed);
+        return new HashAggregationOperator.Status(hashNanos, aggregationNanos, pagesProcessed, pagesEmitted);
     }
 }

@@ -42,6 +42,7 @@ import org.hamcrest.Matcher;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.function.Function;
@@ -53,6 +54,7 @@ import java.util.stream.Stream;
 import static java.util.stream.IntStream.range;
 import static org.elasticsearch.compute.data.BlockTestUtils.append;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 
 /**
@@ -102,13 +104,29 @@ public abstract class GroupingAggregatorFunctionTestCase extends ForkingOperator
         if (randomBoolean()) {
             supplier = chunkGroups(emitChunkSize, supplier);
         }
-        return new HashAggregationOperator.HashAggregationOperatorFactory(
+        final int maxPageSize = randomPageSize();
+        final var hashOperatorFactory = new HashAggregationOperator.HashAggregationOperatorFactory(
             List.of(new BlockHash.GroupSpec(0, ElementType.LONG)),
             mode,
             List.of(supplier.groupingAggregatorFactory(mode)),
-            randomPageSize(),
+            maxPageSize,
             null
         );
+        if (randomBoolean()) {
+            return new Operator.OperatorFactory() {
+                @Override
+                public Operator get(DriverContext driverContext) {
+                    return assertingOutputPageSize(hashOperatorFactory.get(driverContext), maxPageSize);
+                }
+
+                @Override
+                public String describe() {
+                    return hashOperatorFactory.describe();
+                }
+            };
+        } else {
+            return hashOperatorFactory;
+        }
     }
 
     @Override
@@ -171,23 +189,23 @@ public abstract class GroupingAggregatorFunctionTestCase extends ForkingOperator
 
     private void assertSimpleOutput(List<Page> input, List<Page> results, boolean assertGroupCount) {
         SeenGroups seenGroups = seenGroups(input);
-
-        assertThat(results, hasSize(1));
-        assertThat(results.get(0).getBlockCount(), equalTo(2));
         if (assertGroupCount) {
-            assertThat(results.get(0).getPositionCount(), equalTo(seenGroups.size()));
+            int totalPositions = results.stream().mapToInt(Page::getPositionCount).sum();
+            assertThat(totalPositions, equalTo(seenGroups.size()));
         }
-
-        Block groups = results.get(0).getBlock(0);
-        Block result = results.get(0).getBlock(1);
-        for (int i = 0; i < seenGroups.size(); i++) {
-            final Long group;
-            if (groups.isNull(i)) {
-                group = null;
-            } else {
-                group = ((LongBlock) groups).getLong(i);
+        for (Page out : results) {
+            assertThat(out.getBlockCount(), equalTo(2));
+            Block groups = out.getBlock(0);
+            Block result = out.getBlock(1);
+            for (int p = 0; p < groups.getPositionCount(); p++) {
+                final Long group;
+                if (groups.isNull(p)) {
+                    group = null;
+                } else {
+                    group = ((LongBlock) groups).getLong(p);
+                }
+                assertSimpleGroup(input, result, p, group);
             }
-            assertSimpleGroup(input, result, i, group);
         }
     }
 
@@ -389,8 +407,10 @@ public abstract class GroupingAggregatorFunctionTestCase extends ForkingOperator
         DriverContext driverContext = driverContext();
         List<Page> input = CannedSourceOperator.collectPages(simpleInput(driverContext.blockFactory(), 10));
         List<Page> results = drive(factory.get(driverContext), input.iterator(), driverContext);
-        assertThat(results, hasSize(1));
-        assertOutputFromAllFiltered(results.get(0).getBlock(1));
+        assertThat(results.size(), greaterThanOrEqualTo(1));
+        for (Page page : results) {
+            assertOutputFromAllFiltered(page.getBlock(1));
+        }
     }
 
     public final void testNoneFiltered() {
@@ -418,7 +438,6 @@ public abstract class GroupingAggregatorFunctionTestCase extends ForkingOperator
         // Sprinkle garbage into it
         input = CannedSourceOperator.collectPages(new AddGarbageRowsSourceOperator(new CannedSourceOperator(input.iterator())));
         List<Page> results = drive(factory.get(driverContext), input.iterator(), driverContext);
-        assertThat(results, hasSize(1));
 
         assertSimpleOutput(origInput, results, false);
     }
@@ -505,14 +524,15 @@ public abstract class GroupingAggregatorFunctionTestCase extends ForkingOperator
 
         List<Page> results = drive(operators, source.iterator(), driverContext);
 
-        assertThat(results, hasSize(1));
-        LongVector groups = results.get(0).<LongBlock>getBlock(0).asVector();
-        Block resultBlock = results.get(0).getBlock(1);
         boolean foundNullPosition = false;
-        for (int p = 0; p < groups.getPositionCount(); p++) {
-            if (groups.getLong(p) == nullGroup) {
-                foundNullPosition = true;
-                assertOutputFromNullOnly(resultBlock, p);
+        for (Page out : results) {
+            LongVector groups = out.<LongBlock>getBlock(0).asVector();
+            Block resultBlock = out.getBlock(1);
+            for (int p = 0; p < groups.getPositionCount(); p++) {
+                if (groups.getLong(p) == nullGroup) {
+                    foundNullPosition = true;
+                    assertOutputFromNullOnly(resultBlock, p);
+                }
             }
         }
         assertTrue("didn't find the null position. bad position range?", foundNullPosition);
@@ -747,6 +767,65 @@ public abstract class GroupingAggregatorFunctionTestCase extends ForkingOperator
             @Override
             public String describe() {
                 return supplier.describe();
+            }
+        };
+    }
+
+    static Operator assertingOutputPageSize(Operator operator, int maxPageSize) {
+        return new Operator() {
+
+            @Override
+            public boolean needsInput() {
+                return operator.needsInput();
+            }
+
+            @Override
+            public void addInput(Page page) {
+                operator.addInput(page);
+            }
+
+            @Override
+            public void finish() {
+                operator.finish();
+            }
+
+            @Override
+            public boolean isFinished() {
+                return operator.isFinished();
+            }
+
+            @Override
+            public Page getOutput() {
+                final Page page = operator.getOutput();
+                if (page != null && page.getPositionCount() > maxPageSize) {
+                    page.releaseBlocks();
+                    ;
+                    throw new AssertionError(
+                        String.format(
+                            Locale.ROOT,
+                            "Operator %s didn't chunk output pages properly; got an output page with %s positions, max_page_size=%s",
+                            operator,
+                            page.getPositionCount(),
+                            maxPageSize
+                        )
+                    );
+                }
+                return page;
+            }
+
+            @Override
+            public Status status() {
+                return operator.status();
+            }
+
+            @Override
+            public String toString() {
+                return operator.toString();
+            }
+
+            @Override
+            public void close() {
+                operator.close();
             }
         };
     }
