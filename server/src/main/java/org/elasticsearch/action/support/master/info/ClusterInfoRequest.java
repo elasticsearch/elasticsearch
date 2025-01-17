@@ -12,15 +12,19 @@ package org.elasticsearch.action.support.master.info;
 import org.elasticsearch.TransportVersions;
 import org.elasticsearch.action.IndicesRequest;
 import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.action.support.master.MasterNodeReadRequest;
+import org.elasticsearch.action.support.local.LocalClusterStateRequest;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.core.TimeValue;
+import org.elasticsearch.core.UpdateForV10;
+import org.elasticsearch.tasks.CancellableTask;
+import org.elasticsearch.tasks.Task;
+import org.elasticsearch.tasks.TaskId;
 
 import java.io.IOException;
+import java.util.Map;
 
-public abstract class ClusterInfoRequest<Request extends ClusterInfoRequest<Request>> extends MasterNodeReadRequest<Request>
+public abstract class ClusterInfoRequest<Request extends ClusterInfoRequest<Request>> extends LocalClusterStateRequest
     implements
         IndicesRequest.Replaceable {
 
@@ -33,6 +37,11 @@ public abstract class ClusterInfoRequest<Request extends ClusterInfoRequest<Requ
         this.indicesOptions = indicesOptions;
     }
 
+    /**
+     * NB prior to 9.0 this was a TransportMasterNodeReadAction so for BwC we must remain able to read these requests until
+     * we no longer need to support calling this action remotely.
+     */
+    @UpdateForV10(owner = UpdateForV10.Owner.DATA_MANAGEMENT)
     protected ClusterInfoRequest(StreamInput in) throws IOException {
         super(in);
         indices = in.readStringArray();
@@ -43,13 +52,8 @@ public abstract class ClusterInfoRequest<Request extends ClusterInfoRequest<Requ
     }
 
     @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
-        out.writeStringArray(indices);
-        if (out.getTransportVersion().before(TransportVersions.V_8_0_0)) {
-            out.writeStringArray(Strings.EMPTY_ARRAY);
-        }
-        indicesOptions.writeIndicesOptions(out);
+    public Task createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
+        return new CancellableTask(id, type, action, getDescription(), parentTaskId, headers);
     }
 
     @Override
