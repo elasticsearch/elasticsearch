@@ -79,6 +79,8 @@ public record SemanticTextField(
     static final String DIMENSIONS_FIELD = "dimensions";
     static final String SIMILARITY_FIELD = "similarity";
     static final String ELEMENT_TYPE_FIELD = "element_type";
+    static final String INDEX_OPTIONS_FIELD = "index_options";
+    static final String TYPE_FIELD = "type";
 
     public record InferenceResult(String inferenceId, ModelSettings modelSettings, Map<String, List<Chunk>> chunks) {}
 
@@ -158,7 +160,6 @@ public record SemanticTextField(
                     validateFieldNotPresent(SIMILARITY_FIELD, similarity);
                     validateFieldNotPresent(ELEMENT_TYPE_FIELD, elementType);
                     break;
-
                 default:
                     throw new IllegalArgumentException(
                         "Wrong ["
@@ -225,6 +226,26 @@ public record SemanticTextField(
                 XContentType.JSON
             );
             return MODEL_SETTINGS_PARSER.parse(parser, null);
+        } catch (Exception exc) {
+            throw new ElasticsearchException(exc);
+        }
+    }
+
+    static DenseVectorFieldMapper.IndexOptions parseIndexOptionsFromMap(String fieldName, Object node) {
+        if (node == null) {
+            return null;
+        }
+        try {
+            Map<String, Object> map = XContentMapValues.nodeMapValue(node, INDEX_OPTIONS_FIELD);
+            Object type = map.remove(TYPE_FIELD);
+            if (type == null) {
+                throw new IllegalArgumentException("Required [" + TYPE_FIELD + "]");
+            }
+            DenseVectorFieldMapper.VectorIndexType vectorIndexType = DenseVectorFieldMapper.VectorIndexType.fromString(
+                XContentMapValues.nodeStringValue(type.toString(), null)
+            ).orElseThrow(() -> new IllegalArgumentException("Unsupported index options " + TYPE_FIELD + " [" + type + "]"));
+
+            return vectorIndexType.parseIndexOptions(fieldName, map);
         } catch (Exception exc) {
             throw new ElasticsearchException(exc);
         }

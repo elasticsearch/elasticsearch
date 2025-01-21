@@ -166,7 +166,6 @@ public class DenseVectorFieldMapper extends FieldMapper {
         private final Parameter<VectorSimilarity> similarity;
 
         private final Parameter<IndexOptions> indexOptions;
-
         private final Parameter<Boolean> indexed;
         private final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
@@ -276,6 +275,11 @@ public class DenseVectorFieldMapper extends FieldMapper {
 
         public Builder elementType(ElementType elementType) {
             this.elementType.setValue(elementType);
+            return this;
+        }
+
+        public Builder indexOptions(DenseVectorFieldMapper.IndexOptions indexOptions) {
+            this.indexOptions.setValue(indexOptions);
             return this;
         }
 
@@ -1177,7 +1181,7 @@ public class DenseVectorFieldMapper extends FieldMapper {
         public abstract VectorSimilarityFunction vectorSimilarityFunction(IndexVersion indexVersion, ElementType elementType);
     }
 
-    abstract static class IndexOptions implements ToXContent {
+    public abstract static class IndexOptions implements ToXContent {
         final VectorIndexType type;
 
         IndexOptions(VectorIndexType type) {
@@ -1207,6 +1211,10 @@ public class DenseVectorFieldMapper extends FieldMapper {
 
         abstract int doHashCode();
 
+        public VectorIndexType getType() {
+            return type;
+        }
+
         @Override
         public final boolean equals(Object other) {
             if (other == this) {
@@ -1225,7 +1233,7 @@ public class DenseVectorFieldMapper extends FieldMapper {
         }
     }
 
-    private enum VectorIndexType {
+    public enum VectorIndexType {
         HNSW("hnsw", false) {
             @Override
             public IndexOptions parseIndexOptions(String fieldName, Map<String, ?> indexOptionsMap) {
@@ -1422,7 +1430,7 @@ public class DenseVectorFieldMapper extends FieldMapper {
             }
         };
 
-        static Optional<VectorIndexType> fromString(String type) {
+        public static Optional<VectorIndexType> fromString(String type) {
             return Stream.of(VectorIndexType.values()).filter(vectorIndexType -> vectorIndexType.name.equals(type)).findFirst();
         }
 
@@ -1434,7 +1442,7 @@ public class DenseVectorFieldMapper extends FieldMapper {
             this.quantized = quantized;
         }
 
-        abstract IndexOptions parseIndexOptions(String fieldName, Map<String, ?> indexOptionsMap);
+        public abstract IndexOptions parseIndexOptions(String fieldName, Map<String, ?> indexOptionsMap);
 
         public abstract boolean supportsElementType(ElementType elementType);
 
@@ -1442,6 +1450,10 @@ public class DenseVectorFieldMapper extends FieldMapper {
 
         public boolean isQuantized() {
             return quantized;
+        }
+
+        public String getName() {
+            return name;
         }
 
         @Override
@@ -2319,7 +2331,7 @@ public class DenseVectorFieldMapper extends FieldMapper {
         return new Builder(leafName(), indexCreatedVersion).init(this);
     }
 
-    private static IndexOptions parseIndexOptions(String fieldName, Object propNode) {
+    public static IndexOptions parseIndexOptions(String fieldName, Object propNode) {
         @SuppressWarnings("unchecked")
         Map<String, ?> indexOptionsMap = (Map<String, ?>) propNode;
         Object typeNode = indexOptionsMap.remove("type");

@@ -56,7 +56,7 @@ public class DenseVectorFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
-    private DenseVectorFieldMapper.IndexOptions randomIndexOptionsAll() {
+    public static DenseVectorFieldMapper.IndexOptions randomIndexOptionsAll() {
         return randomFrom(
             new DenseVectorFieldMapper.HnswIndexOptions(randomIntBetween(1, 100), randomIntBetween(1, 10_000)),
             new DenseVectorFieldMapper.Int8HnswIndexOptions(
