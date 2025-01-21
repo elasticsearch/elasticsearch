@@ -156,10 +156,7 @@ public class IndexDeprecationChecksTests extends ESTestCase {
             .metadata(Metadata.builder().put(indexMetadata, true))
             .blocks(clusterBlocksForIndex(indexMetadata))
             .build();
-        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(
-            INDEX_SETTINGS_CHECKS,
-            c -> c.apply(indexMetadata, clusterState)
-        );
+        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(INDEX_SETTINGS_CHECKS, c -> c.apply(indexMetadata, clusterState));
         assertThat(
             issues,
             contains(
@@ -198,10 +195,7 @@ public class IndexDeprecationChecksTests extends ESTestCase {
             .metadata(Metadata.builder().put(indexMetadata, true))
             .blocks(clusterBlocksForIndex(indexMetadata))
             .build();
-        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(
-            INDEX_SETTINGS_CHECKS,
-            c -> c.apply(indexMetadata, clusterState)
-        );
+        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(INDEX_SETTINGS_CHECKS, c -> c.apply(indexMetadata, clusterState));
         assertThat(issues, empty());
     }
 
@@ -218,10 +212,7 @@ public class IndexDeprecationChecksTests extends ESTestCase {
             .metadata(Metadata.builder().put(indexMetadata, true))
             .blocks(clusterBlocksForIndex(indexMetadata))
             .build();
-        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(
-            INDEX_SETTINGS_CHECKS,
-            c -> c.apply(indexMetadata, clusterState)
-        );
+        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(INDEX_SETTINGS_CHECKS, c -> c.apply(indexMetadata, clusterState));
         final String expectedUrl =
             "https://www.elastic.co/guide/en/elasticsearch/reference/7.13/breaking-changes-7.13.html#deprecate-shared-data-path-setting";
         assertThat(
@@ -252,10 +243,7 @@ public class IndexDeprecationChecksTests extends ESTestCase {
             .metadata(Metadata.builder().put(indexMetadata, true))
             .blocks(clusterBlocksForIndex(indexMetadata))
             .build();
-        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(
-            INDEX_SETTINGS_CHECKS,
-            c -> c.apply(indexMetadata, clusterState)
-        );
+        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(INDEX_SETTINGS_CHECKS, c -> c.apply(indexMetadata, clusterState));
         assertThat(
             issues,
             contains(
@@ -286,10 +274,7 @@ public class IndexDeprecationChecksTests extends ESTestCase {
             .metadata(Metadata.builder().put(indexMetadata, true))
             .blocks(clusterBlocksForIndex(indexMetadata))
             .build();
-        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(
-            INDEX_SETTINGS_CHECKS,
-            c -> c.apply(indexMetadata, clusterState)
-        );
+        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(INDEX_SETTINGS_CHECKS, c -> c.apply(indexMetadata, clusterState));
         assertThat(
             issues,
             contains(
@@ -336,10 +321,7 @@ public class IndexDeprecationChecksTests extends ESTestCase {
             false,
             null
         );
-        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(
-            INDEX_SETTINGS_CHECKS,
-            c -> c.apply(simpleIndex, clusterState)
-        );
+        List<DeprecationIssue> issues = DeprecationChecks.filterChecks(INDEX_SETTINGS_CHECKS, c -> c.apply(simpleIndex, clusterState));
         assertThat(issues, hasItem(expected));
     }
 
