@@ -300,18 +300,18 @@ public class StatementParserTests extends AbstractStatementParserTests {
         );
     }
 
-    public void testStatsWithoutAggs() throws Exception {
+    public void testStatsWithoutAggs() {
         assertEquals(
             new Aggregate(EMPTY, PROCESSING_CMD_INPUT, Aggregate.AggregateType.STANDARD, List.of(attribute("a")), List.of(attribute("a"))),
             processingCommand("stats by a")
         );
     }
 
-    public void testStatsWithoutAggsOrGroup() throws Exception {
+    public void testStatsWithoutAggsOrGroup() {
         expectError("from text | stats", "At least one aggregation or grouping expression required in [stats]");
     }
 
-    public void testAggsWithGroupKeyAsAgg() throws Exception {
+    public void testAggsWithGroupKeyAsAgg() {
         var queries = new String[] { """
             row a = 1, b = 2
             | stats a by a
@@ -332,7 +332,7 @@ public class StatementParserTests extends AbstractStatementParserTests {
         }
     }
 
-    public void testStatsWithGroupKeyAndAggFilter() throws Exception {
+    public void testStatsWithGroupKeyAndAggFilter() {
         var a = attribute("a");
         var f = new UnresolvedFunction(EMPTY, "min", DEFAULT, List.of(a));
         var filter = new Alias(EMPTY, "min(a) where a > 1", new FilteredExpression(EMPTY, f, new GreaterThan(EMPTY, a, integer(1))));
@@ -342,7 +342,7 @@ public class StatementParserTests extends AbstractStatementParserTests {
         );
     }
 
-    public void testStatsWithGroupKeyAndMixedAggAndFilter() throws Exception {
+    public void testStatsWithGroupKeyAndMixedAggAndFilter() {
         var a = attribute("a");
         var min = new UnresolvedFunction(EMPTY, "min", DEFAULT, List.of(a));
         var max = new UnresolvedFunction(EMPTY, "max", DEFAULT, List.of(a));
@@ -377,7 +377,7 @@ public class StatementParserTests extends AbstractStatementParserTests {
         );
     }
 
-    public void testStatsWithoutGroupKeyMixedAggAndFilter() throws Exception {
+    public void testStatsWithoutGroupKeyMixedAggAndFilter() {
         var a = attribute("a");
         var f = new UnresolvedFunction(EMPTY, "min", DEFAULT, List.of(a));
         var filter = new Alias(EMPTY, "min(a) where a > 1", new FilteredExpression(EMPTY, f, new GreaterThan(EMPTY, a, integer(1))));
@@ -613,6 +613,60 @@ public class StatementParserTests extends AbstractStatementParserTests {
             unresolvedRelation(indexString1 + ", " + indexString2),
             statement(command, "\"" + indexString1 + ", " + indexString2 + "\"")
         );
+    }
+
+    public void testValidFromIndexPattern() {
+        var patterns = randomList(1, 5, () -> {
+            String pattern = randomIndexIdentifier();// index or alias
+            if (randomBoolean()) {// pattern
+                pattern += "*";
+            }
+            if (randomBoolean()) {// quoted
+                pattern = "\"" + pattern + "\"";
+            }
+            if (randomBoolean()) {// remote cluster
+                var cluster = randomIdentifier();
+                if (randomBoolean()) {// quoted
+                    cluster = "\"" + cluster + "\"";
+                }
+                pattern = cluster + ":" + pattern;
+            }
+            if (pattern.contains(":") && pattern.contains("\"") == false) {// quote entire "cluster:index"
+                pattern = "\"" + pattern + "\"";
+            }
+            return pattern;
+        });
+
+        var plan = statement("FROM " + String.join(",", patterns));
+        var expected = String.join(",", patterns).replace("\"", "");
+
+        assertThat(plan, instanceOf(UnresolvedRelation.class));
+        assertThat(((UnresolvedRelation) plan).table().index(), equalTo(expected));
+    }
+
+    private static String randomIndexIdentifier() {
+        // https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html#indices-create-api-path-params
+        var validFirstCharacters = "abcdefghijklmnopqrstuvwxyz0123456789!'$^&";
+        var validCharacters = validFirstCharacters + "+-_.";
+
+        var index = new StringBuilder();
+        if (randomInt(9) == 0) {// hidden index
+            index.append('.');
+        }
+        index.append(randomCharacterFrom(validFirstCharacters));
+        for (int i = 0; i < randomIntBetween(1, 100); i++) {
+            index.append(randomCharacterFrom(validCharacters));
+        }
+        return index.toString();
+    }
+
+    private static char randomCharacterFrom(String str) {
+        return str.charAt(randomInt(str.length() - 1));
+    }
+
+    public void testInvalidFromIndexPattern() {
+        expectError("FROM \"remote:\":index", "line 1:6: cluster string [remote:] must not contain ':'");
+        expectError("FROM \"remote:invalid\":index", "line 1:6: cluster string [remote:invalid] must not contain ':'");
     }
 
     public void testInvalidQuotingAsFromIndexPattern() {
@@ -2060,41 +2114,41 @@ public class StatementParserTests extends AbstractStatementParserTests {
         assertThat(tableName.fold(FoldContext.small()), equalTo(string));
     }
 
-    public void testIdPatternUnquoted() throws Exception {
+    public void testIdPatternUnquoted() {
         var string = "regularString";
         assertThat(breakIntoFragments(string), contains(string));
     }
 
-    public void testIdPatternQuoted() throws Exception {
+    public void testIdPatternQuoted() {
         var string = "`escaped string`";
         assertThat(breakIntoFragments(string), contains(string));
     }
 
-    public void testIdPatternQuotedWithDoubleBackticks() throws Exception {
+    public void testIdPatternQuotedWithDoubleBackticks() {
         var string = "`escaped``string`";
         assertThat(breakIntoFragments(string), contains(string));
     }
 
-    public void testIdPatternUnquotedAndQuoted() throws Exception {
+    public void testIdPatternUnquotedAndQuoted() {
         var string = "this`is`a`mix`of`ids`";
         assertThat(breakIntoFragments(string), contains("this", "`is`", "a", "`mix`", "of", "`ids`"));
     }
 
-    public void testIdPatternQuotedTraling() throws Exception {
+    public void testIdPatternQuotedTrailing() {
         var string = "`foo`*";
         assertThat(breakIntoFragments(string), contains("`foo`", "*"));
     }
 
-    public void testIdPatternWithDoubleQuotedStrings() throws Exception {
+    public void testIdPatternWithDoubleQuotedStrings() {
         var string = "`this``is`a`quoted `` string``with`backticks";
         assertThat(breakIntoFragments(string), contains("`this``is`", "a", "`quoted `` string``with`", "backticks"));
     }
 
-    public void testSpaceNotAllowedInIdPattern() throws Exception {
+    public void testSpaceNotAllowedInIdPattern() {
         expectError("ROW a = 1| RENAME a AS this is `not okay`", "mismatched input 'is' expecting {<EOF>, '|', ',', '.'}");
     }
 
-    public void testSpaceNotAllowedInIdPatternKeep() throws Exception {
+    public void testSpaceNotAllowedInIdPatternKeep() {
         expectError("ROW a = 1, b = 1| KEEP a b", "extraneous input 'b'");
     }
 
