@@ -22,6 +22,7 @@ import org.elasticsearch.action.RemoteClusterActionType;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.IndicesOptions;
+import org.elasticsearch.action.support.ListenerTimeouts;
 import org.elasticsearch.action.support.RefCountingRunnable;
 import org.elasticsearch.client.internal.RemoteClusterClient;
 import org.elasticsearch.cluster.ClusterState;
@@ -29,12 +30,14 @@ import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.core.Strings;
+import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.injection.guice.Inject;
 import org.elasticsearch.search.SearchService;
 import org.elasticsearch.tasks.CancellableTask;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.transport.ConnectTransportException;
 import org.elasticsearch.transport.RemoteClusterAware;
 import org.elasticsearch.transport.RemoteClusterService;
 import org.elasticsearch.transport.TransportService;
@@ -66,6 +69,7 @@ public class TransportResolveClusterAction extends HandledTransportAction<Resolv
     private final RemoteClusterService remoteClusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
     private final boolean ccsCheckCompatibility;
+    private final ThreadPool threadPool;
 
     @Inject
     public TransportResolveClusterAction(
@@ -81,6 +85,7 @@ public class TransportResolveClusterAction extends HandledTransportAction<Resolv
         this.remoteClusterService = transportService.getRemoteClusterService();
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.ccsCheckCompatibility = SearchService.CCS_VERSION_CHECK_SETTING.get(clusterService.getSettings());
+        this.threadPool = threadPool;
     }
 
     @Override
@@ -93,6 +98,7 @@ public class TransportResolveClusterAction extends HandledTransportAction<Resolv
         if (ccsCheckCompatibility) {
             checkCCSVersionCompatibility(request);
         }
+
         assert task instanceof CancellableTask;
         final CancellableTask resolveClusterTask = (CancellableTask) task;
         ClusterState clusterState = clusterService.state();
@@ -171,7 +177,7 @@ public class TransportResolveClusterAction extends HandledTransportAction<Resolv
                 RemoteClusterClient remoteClusterClient = remoteClusterService.getRemoteClusterClient(
                     clusterAlias,
                     searchCoordinationExecutor,
-                    RemoteClusterService.DisconnectedStrategy.FAIL_IF_DISCONNECTED
+                    RemoteClusterService.DisconnectedStrategy.RECONNECT_IF_DISCONNECTED
                 );
                 var remoteRequest = new ResolveClusterActionRequest(
                     originalIndices.indices(),
@@ -326,11 +332,23 @@ public class TransportResolveClusterAction extends HandledTransportAction<Resolv
                     }
                 };
 
-                remoteClusterClient.execute(
-                    TransportResolveClusterAction.REMOTE_TYPE,
-                    remoteRequest,
-                    ActionListener.releaseAfter(remoteListener, refs.acquire())
-                );
+                ActionListener<ResolveClusterActionResponse> resultsListener;
+                TimeValue timeout = request.getTimeout();
+                // Wrap the listener with a timeout since a timeout was specified.
+                if (timeout != null) {
+                    var releaserListener = ActionListener.releaseAfter(remoteListener, refs.acquire());
+                    resultsListener = ListenerTimeouts.wrapWithTimeout(
+                        threadPool,
+                        timeout,
+                        searchCoordinationExecutor,
+                        releaserListener,
+                        ignored -> releaserListener.onFailure(new ConnectTransportException(null, "Could not connect to the remote node"))
+                    );
+                } else {
+                    resultsListener = ActionListener.releaseAfter(remoteListener, refs.acquire());
+                }
+
+                remoteClusterClient.execute(TransportResolveClusterAction.REMOTE_TYPE, remoteRequest, resultsListener);
             }
         }
     }
