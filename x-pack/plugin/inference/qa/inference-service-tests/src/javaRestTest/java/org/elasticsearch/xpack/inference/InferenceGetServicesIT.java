@@ -20,15 +20,12 @@ import org.elasticsearch.test.cluster.ElasticsearchCluster;
 import org.elasticsearch.test.cluster.FeatureFlag;
 import org.elasticsearch.test.cluster.local.distribution.DistributionType;
 import org.elasticsearch.test.rest.ESRestTestCase;
-import org.elasticsearch.xpack.inference.services.elastic.ElasticInferenceServiceFeature;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -53,8 +50,6 @@ public class InferenceGetServicesIT extends ESRestTestCase {
         .setting("xpack.security.enabled", "true")
         // Adding both settings unless one feature flag is disabled in a particular environment
         .setting("xpack.inference.elastic.url", mockEISServer::getUrl)
-        // TODO remove this once we've removed DEPRECATED_ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG and EIS_GATEWAY_URL
-        .setting("xpack.inference.eis.gateway.url", mockEISServer::getUrl)
         // This plugin is located in the inference/qa/test-service-plugin package, look for TestInferenceServicePlugin
         .plugin("inference-service-test")
         .user("x_pack_rest_user", "x-pack-test-password")
@@ -80,12 +75,7 @@ public class InferenceGetServicesIT extends ESRestTestCase {
     @SuppressWarnings("unchecked")
     public void testGetServicesWithoutTaskType() throws IOException {
         List<Object> services = getAllServices();
-        if ((ElasticInferenceServiceFeature.DEPRECATED_ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled()
-            || ElasticInferenceServiceFeature.ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled())) {
-            assertThat(services.size(), equalTo(19));
-        } else {
-            assertThat(services.size(), equalTo(18));
-        }
+        assertThat(services.size(), equalTo(19));
 
         String[] providers = new String[services.size()];
         for (int i = 0; i < services.size(); i++) {
@@ -93,14 +83,15 @@ public class InferenceGetServicesIT extends ESRestTestCase {
             providers[i] = (String) serviceConfig.get("service");
         }
 
-        var providerList = new ArrayList<>(
-            Arrays.asList(
+        assertArrayEquals(
+            List.of(
                 "alibabacloud-ai-search",
                 "amazonbedrock",
                 "anthropic",
                 "azureaistudio",
                 "azureopenai",
                 "cohere",
+                "elastic",
                 "elasticsearch",
                 "googleaistudio",
                 "googlevertexai",
@@ -113,13 +104,9 @@ public class InferenceGetServicesIT extends ESRestTestCase {
                 "test_service",
                 "text_embedding_test_service",
                 "watsonxai"
-            )
+            ).toArray(),
+            providers
         );
-        if ((ElasticInferenceServiceFeature.DEPRECATED_ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled()
-            || ElasticInferenceServiceFeature.ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled())) {
-            providerList.add(6, "elastic");
-        }
-        assertArrayEquals(providerList.toArray(), providers);
     }
 
     @SuppressWarnings("unchecked")
@@ -182,32 +169,23 @@ public class InferenceGetServicesIT extends ESRestTestCase {
             providers[i] = (String) serviceConfig.get("service");
         }
 
-        var providerList = new ArrayList<>(
-            List.of(
-                "alibabacloud-ai-search",
-                "amazonbedrock",
-                "anthropic",
-                "azureaistudio",
-                "azureopenai",
-                "cohere",
-                "googleaistudio",
-                "openai",
-                "streaming_completion_test_service"
-            )
-        );
-
-        assertArrayEquals(providers, providerList.toArray());
+        assertArrayEquals(List.of(
+            "alibabacloud-ai-search",
+            "amazonbedrock",
+            "anthropic",
+            "azureaistudio",
+            "azureopenai",
+            "cohere",
+            "googleaistudio",
+            "openai",
+            "streaming_completion_test_service"
+        ).toArray(), providers);
     }
 
     @SuppressWarnings("unchecked")
     public void testGetServicesWithChatCompletionTaskType() throws IOException {
         List<Object> services = getServices(TaskType.CHAT_COMPLETION);
-        if ((ElasticInferenceServiceFeature.DEPRECATED_ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled()
-            || ElasticInferenceServiceFeature.ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled())) {
-            assertThat(services.size(), equalTo(3));
-        } else {
-            assertThat(services.size(), equalTo(2));
-        }
+        assertThat(services.size(), equalTo(3));
 
         String[] providers = new String[services.size()];
         for (int i = 0; i < services.size(); i++) {
@@ -215,26 +193,13 @@ public class InferenceGetServicesIT extends ESRestTestCase {
             providers[i] = (String) serviceConfig.get("service");
         }
 
-        var providerList = new ArrayList<>(List.of("openai", "streaming_completion_test_service"));
-
-        if ((ElasticInferenceServiceFeature.DEPRECATED_ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled()
-            || ElasticInferenceServiceFeature.ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled())) {
-            providerList.addFirst("elastic");
-        }
-
-        assertArrayEquals(providers, providerList.toArray());
+        assertArrayEquals(List.of("elastic", "openai", "streaming_completion_test_service").toArray(), providers);
     }
 
     @SuppressWarnings("unchecked")
     public void testGetServicesWithSparseEmbeddingTaskType() throws IOException {
         List<Object> services = getServices(TaskType.SPARSE_EMBEDDING);
-
-        if ((ElasticInferenceServiceFeature.DEPRECATED_ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled()
-            || ElasticInferenceServiceFeature.ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled())) {
-            assertThat(services.size(), equalTo(5));
-        } else {
-            assertThat(services.size(), equalTo(4));
-        }
+        assertThat(services.size(), equalTo(5));
 
         String[] providers = new String[services.size()];
         for (int i = 0; i < services.size(); i++) {
@@ -242,12 +207,10 @@ public class InferenceGetServicesIT extends ESRestTestCase {
             providers[i] = (String) serviceConfig.get("service");
         }
 
-        var providerList = new ArrayList<>(Arrays.asList("alibabacloud-ai-search", "elasticsearch", "hugging_face", "test_service"));
-        if ((ElasticInferenceServiceFeature.DEPRECATED_ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled()
-            || ElasticInferenceServiceFeature.ELASTIC_INFERENCE_SERVICE_FEATURE_FLAG.isEnabled())) {
-            providerList.add(1, "elastic");
-        }
-        assertArrayEquals(providers, providerList.toArray());
+        assertArrayEquals(
+            List.of("alibabacloud-ai-search", "elastic", "elasticsearch", "hugging_face", "test_service").toArray(),
+            providers
+        );
     }
 
     private List<Object> getAllServices() throws IOException {
