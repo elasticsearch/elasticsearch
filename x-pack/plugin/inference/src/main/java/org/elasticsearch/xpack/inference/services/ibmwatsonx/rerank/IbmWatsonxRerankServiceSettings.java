@@ -46,8 +46,6 @@ import static org.elasticsearch.xpack.inference.services.ibmwatsonx.IbmWatsonxSe
 public class IbmWatsonxRerankServiceSettings extends FilteredXContentObject implements ServiceSettings, IbmWatsonxRateLimitServiceSettings {
     public static final String NAME = "ibm_watsonx_rerank_service_settings";
 
-    private static final Logger logger = LogManager.getLogger(IbmWatsonxRerankServiceSettings.class);
-
     public static IbmWatsonxRerankServiceSettings fromMap(Map<String, Object> map, ConfigurationParseContext context) {
         ValidationException validationException = new ValidationException();
 
@@ -177,7 +175,7 @@ public class IbmWatsonxRerankServiceSettings extends FilteredXContentObject impl
 
     @Override
     public TransportVersion getMinimalSupportedVersion() {
-        return TransportVersions.V_8_14_0;
+        return TransportVersions.ML_INFERENCE_IBM_WATSONX_RERANK_ADDED;
     }
 
     @Override
@@ -189,9 +187,7 @@ public class IbmWatsonxRerankServiceSettings extends FilteredXContentObject impl
         out.writeOptionalString(modelId);
         out.writeOptionalString(projectId);
 
-        if (out.getTransportVersion().onOrAfter(TransportVersions.V_8_15_0)) {
-            rateLimitSettings.writeTo(out);
-        }
+        rateLimitSettings.writeTo(out);
     }
 
     @Override
