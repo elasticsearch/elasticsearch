@@ -45,10 +45,13 @@ import org.elasticsearch.xpack.esql.core.expression.predicate.operator.compariso
 import org.elasticsearch.xpack.esql.core.tree.Source;
 import org.elasticsearch.xpack.esql.core.type.DataType;
 import org.elasticsearch.xpack.esql.core.type.EsField;
+import org.elasticsearch.xpack.esql.core.type.InvalidMappedField;
+import org.elasticsearch.xpack.esql.core.type.PotentiallyUnmappedKeywordEsField;
 import org.elasticsearch.xpack.esql.core.util.Holder;
 import org.elasticsearch.xpack.esql.core.util.StringUtils;
 import org.elasticsearch.xpack.esql.expression.Order;
 import org.elasticsearch.xpack.esql.expression.function.EsqlFunctionRegistry;
+import org.elasticsearch.xpack.esql.expression.function.UnsupportedAttribute;
 import org.elasticsearch.xpack.esql.expression.function.aggregate.AggregateFunction;
 import org.elasticsearch.xpack.esql.expression.function.aggregate.Count;
 import org.elasticsearch.xpack.esql.expression.function.aggregate.FromPartial;
@@ -134,6 +137,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -190,23 +194,24 @@ import static org.hamcrest.Matchers.startsWith;
 
 //@TestLogging(value = "org.elasticsearch.xpack.esql:TRACE", reason = "debug")
 public class LogicalPlanOptimizerTests extends ESTestCase {
-
     private static EsqlParser parser;
-    private static Analyzer analyzer;
     private static LogicalOptimizerContext logicalOptimizerCtx;
     private static LogicalPlanOptimizer logicalOptimizer;
+
     private static Map<String, EsField> mapping;
+    private static Analyzer analyzer;
     private static Map<String, EsField> mappingAirports;
-    private static Map<String, EsField> mappingTypes;
     private static Analyzer analyzerAirports;
+    private static Map<String, EsField> mappingTypes;
     private static Analyzer analyzerTypes;
     private static Map<String, EsField> mappingExtra;
     private static Analyzer analyzerExtra;
-    private static EnrichResolution enrichResolution;
-    private static final LiteralsOnTheRight LITERALS_ON_THE_RIGHT = new LiteralsOnTheRight();
-
     private static Map<String, EsField> metricMapping;
     private static Analyzer metricsAnalyzer;
+    private static Analyzer multiIndexAnalyzer;
+
+    private static EnrichResolution enrichResolution;
+    private static final LiteralsOnTheRight LITERALS_ON_THE_RIGHT = new LiteralsOnTheRight();
 
     private static class SubstitutionOnlyOptimizer extends LogicalPlanOptimizer {
         static SubstitutionOnlyOptimizer INSTANCE = new SubstitutionOnlyOptimizer(unboundLogicalOptimizerContext());
@@ -275,6 +280,30 @@ public class LogicalPlanOptimizerTests extends ESTestCase {
         var metricsIndex = IndexResolution.valid(new EsIndex("k8s", metricMapping, Map.of("k8s", IndexMode.TIME_SERIES)));
         metricsAnalyzer = new Analyzer(
             new AnalyzerContext(EsqlTestUtils.TEST_CFG, new EsqlFunctionRegistry(), metricsIndex, enrichResolution),
+            TEST_VERIFIER
+        );
+
+        var multiIndexMapping = loadMapping("mapping-basic.json");
+        multiIndexMapping.put(
+            "multi_type_with_keyword",
+            new InvalidMappedField("multi_type_with_keyword", Map.of("long", Set.of("test1"), "keyword", Set.of("test2")))
+        );
+        multiIndexMapping.put("partial_type_keyword", new EsField("partial_type_keyword", KEYWORD, emptyMap(), true));
+        multiIndexMapping.put("partial_type_long", new EsField("partial_type_long", LONG, emptyMap(), true));
+        multiIndexMapping.put(
+            "multi_type_without_keyword",
+            new InvalidMappedField("multi_type_without_keyword", Map.of("long", Set.of("test1"), "date", Set.of("test2")))
+        );
+        var multiIndex = IndexResolution.valid(
+            new EsIndex(
+                "multi_index",
+                multiIndexMapping,
+                Map.of("test1", IndexMode.STANDARD, "test2", IndexMode.STANDARD),
+                Set.of("partial_type_keyword", "multi_type_without_keyword", "multi_type_with_keyword", "partial_type_long")
+            )
+        );
+        multiIndexAnalyzer = new Analyzer(
+            new AnalyzerContext(EsqlTestUtils.TEST_CFG, new EsqlFunctionRegistry(), multiIndex, enrichResolution),
             TEST_VERIFIER
         );
     }
@@ -2575,6 +2604,89 @@ public class LogicalPlanOptimizerTests extends ESTestCase {
                 )
             )
         );
+    }
+
+    public void testResolveInsist_fieldExistsSingleIndex_insistIsExpunged() {
+        assumeTrue("Requires UNMAPPED FIELDS", EsqlCapabilities.Cap.UNMAPPED_FIELDS.isEnabled());
+
+        LogicalPlan plan = optimizedPlan("FROM test | INSIST_🐔 emp_no");
+
+        LogicalPlan equivalentPlan = optimizedPlan("FROM test");
+
+        assertThat(plan, equalTo(equivalentPlan));
+    }
+
+    private static Attribute getAttribute(List<Attribute> attributes, String name) {
+        return attributes.stream().filter(attr -> attr.name().equals(name)).findFirst().get();
+    }
+
+    public void testResolveInsist_fieldDoesNotExist_updatesRelationWithNewField() {
+        assumeTrue("Requires UNMAPPED FIELDS", EsqlCapabilities.Cap.UNMAPPED_FIELDS.isEnabled());
+
+        LogicalPlan plan = optimizedPlan("FROM test | INSIST_🐔 foo");
+
+        var limit = as(plan, Limit.class);
+        var relation = as(limit.child(), EsRelation.class);
+        assertThat(relation.output(), hasSize(optimizedPlan("FROM test").output().size() + 1));
+        assertThat(((FieldAttribute) relation.output().getLast()).field(), is(new PotentiallyUnmappedKeywordEsField("foo")));
+    }
+
+    public void testResolveInsist_multiIndexFieldExistsWithSingleKeywordType_updatesRelationWithNewField() {
+        assumeTrue("Requires UNMAPPED FIELDS", EsqlCapabilities.Cap.UNMAPPED_FIELDS.isEnabled());
+
+        var plan = planMultiIndex("FROM multi_index | INSIST_🐔 partial_type_keyword");
+        var limit = as(plan, Limit.class);
+        var relation = as(limit.child(), EsRelation.class);
+        assertThat(relation.output(), hasSize(planMultiIndex("FROM multi_index").output().size()));
+        var attribute = (FieldAttribute) getAttribute(relation.output(), "partial_type_keyword");
+        assertThat(attribute.field(), is(new PotentiallyUnmappedKeywordEsField("partial_type_keyword")));
+    }
+
+    public void testResolveInsist_multiIndexFieldExistsWithSingleTypeButIsNotKeywordAndMissingCast_createsAnInvalidMappedField() {
+        assumeTrue("Requires UNMAPPED FIELDS", EsqlCapabilities.Cap.UNMAPPED_FIELDS.isEnabled());
+
+        var plan = planMultiIndex("FROM multi_index | INSIST_🐔 partial_type_long");
+        var limit = as(plan, Limit.class);
+        var relation = as(limit.child(), EsRelation.class);
+        var attr = (UnsupportedAttribute) relation.output().stream().filter(e -> e.name().equals("partial_type_long")).findFirst().get();
+
+        String substring = "Cannot use field [partial_type_long] due to ambiguities caused by INSIST. "
+            + "Unmapped fields are treated as KEYWORD in unmapped indices, but field is mapped to another type";
+        assertThat(attr.unresolvedMessage(), containsString(substring));
+    }
+
+    public void testResolveInsist_multiIndexFieldExists_insistIsExpunged() {
+        assumeTrue("Requires UNMAPPED FIELDS", EsqlCapabilities.Cap.UNMAPPED_FIELDS.isEnabled());
+
+        var plan = planMultiIndex("FROM multi_index | INSIST_🐔 emp_no");
+        LogicalPlan equivalentPlan = planMultiIndex("FROM multi_index");
+
+        assertThat(plan, equalTo(equivalentPlan));
+    }
+
+    public void testResolveInsist_multiIndexFieldPartiallyExistsWithMultiTypes_createsTheCorrectUnsupportedField() {
+        assumeTrue("Requires UNMAPPED FIELDS", EsqlCapabilities.Cap.UNMAPPED_FIELDS.isEnabled());
+
+        var plan = planMultiIndex("FROM multi_index | INSIST_🐔 multi_type_without_keyword");
+        var limit = as(plan, Limit.class);
+        var relation = as(limit.child(), EsRelation.class);
+        var attr = (UnsupportedAttribute) getAttribute(relation.output(), "multi_type_without_keyword");
+
+        String substring = "Cannot use field [multi_type_without_keyword] due to ambiguities caused by INSIST. "
+            + "Unmapped fields are treated as KEYWORD in unmapped indices, but field is mapped to another type";
+        assertThat(attr.unresolvedMessage(), containsString(substring));
+    }
+
+    public void testResolveInsist_multiIndexFieldPartiallyExistsWithMultiTypesWithCast_castsAreNotSupported() {
+        assumeTrue("Requires UNMAPPED FIELDS", EsqlCapabilities.Cap.UNMAPPED_FIELDS.isEnabled());
+
+        VerificationException e = expectThrows(VerificationException.class, () -> planMultiIndex("""
+            FROM multi_index |
+            INSIST_🐔 multi_type_without_keyword |
+            EVAL multi_type_without_keyword = multi_type_without_keyword :: DATETIME"""));
+        String msg = "Cannot use field [multi_type_without_keyword] due to ambiguities caused by INSIST. "
+            + "Unmapped fields are treated as KEYWORD in unmapped indices, but field is mapped to another type";
+        assertThat(e.getMessage(), containsString(msg));
     }
 
     public void testSimplifyLikeNoWildcard() {
@@ -5552,6 +5664,10 @@ public class LogicalPlanOptimizerTests extends ESTestCase {
 
     private LogicalPlan planTypes(String query) {
         return logicalOptimizer.optimize(analyzerTypes.analyze(parser.createStatement(query)));
+    }
+
+    private LogicalPlan planMultiIndex(String query) {
+        return logicalOptimizer.optimize(multiIndexAnalyzer.analyze(parser.createStatement(query)));
     }
 
     private EsqlBinaryComparison extractPlannedBinaryComparison(String expression) {
