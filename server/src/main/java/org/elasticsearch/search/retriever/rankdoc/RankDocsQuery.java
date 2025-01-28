@@ -57,6 +57,11 @@ public class RankDocsQuery extends Query {
             this.queryNames = queryNames;
             this.segmentStarts = segmentStarts;
             this.contextIdentity = contextIdentity;
+            for (RankDoc doc : docs) {
+                if (false == doc.score >= 0) {
+                    throw new IllegalArgumentException("RankDoc scores must be positive values. Missing a normalization step?");
+                }
+            }
         }
 
         @Override
@@ -160,7 +165,7 @@ public class RankDocsQuery extends Query {
 
                         @Override
                         public float score() {
-                            return docs[upTo].score;
+                            return Math.max(docs[upTo].score, Float.MIN_VALUE);
                         }
 
                         @Override
