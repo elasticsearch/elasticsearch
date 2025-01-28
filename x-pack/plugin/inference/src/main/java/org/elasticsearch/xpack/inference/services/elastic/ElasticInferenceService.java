@@ -7,6 +7,8 @@
 
 package org.elasticsearch.xpack.inference.services.elastic;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.TransportVersion;
 import org.elasticsearch.TransportVersions;
@@ -16,6 +18,8 @@ import org.elasticsearch.common.util.LazyInitializable;
 import org.elasticsearch.core.Nullable;
 import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.inference.ChunkedInference;
+import org.elasticsearch.inference.EmptySecretSettings;
+import org.elasticsearch.inference.EmptyTaskSettings;
 import org.elasticsearch.inference.InferenceServiceConfiguration;
 import org.elasticsearch.inference.InferenceServiceResults;
 import org.elasticsearch.inference.InputType;
@@ -47,11 +51,14 @@ import org.elasticsearch.xpack.inference.services.ServiceUtils;
 import org.elasticsearch.xpack.inference.services.elastic.authorization.ElasticInferenceServiceAuthorization;
 import org.elasticsearch.xpack.inference.services.elastic.authorization.ElasticInferenceServiceAuthorizationHandler;
 import org.elasticsearch.xpack.inference.services.elastic.completion.ElasticInferenceServiceCompletionModel;
+import org.elasticsearch.xpack.inference.services.elastic.completion.ElasticInferenceServiceCompletionServiceSettings;
 import org.elasticsearch.xpack.inference.services.settings.RateLimitSettings;
 import org.elasticsearch.xpack.inference.telemetry.TraceContext;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -77,8 +84,11 @@ public class ElasticInferenceService extends SenderService {
     public static final String NAME = "elastic";
     public static final String ELASTIC_INFERENCE_SERVICE_IDENTIFIER = "Elastic Inference Service";
 
+    private static final Logger logger = LogManager.getLogger(ElasticInferenceService.class);
     private static final EnumSet<TaskType> IMPLEMENTED_TASK_TYPES = EnumSet.of(TaskType.SPARSE_EMBEDDING, TaskType.CHAT_COMPLETION);
     private static final String SERVICE_NAME = "Elastic";
+    static final String DEFAULT_CHAT_COMPLETION_MODEL_ID_V1 = "rainbow-sprinkles";
+    static final String DEFAULT_CHAT_COMPLETION_ENDPOINT_ID_V1 = Strings.format(".%s-elastic", DEFAULT_CHAT_COMPLETION_MODEL_ID_V1);
 
     /**
      * The task types that the {@link InferenceAction.Request} can accept.
@@ -87,10 +97,12 @@ public class ElasticInferenceService extends SenderService {
 
     private final ElasticInferenceServiceComponents elasticInferenceServiceComponents;
     private Configuration configuration;
-    private final AtomicReference<EnumSet<TaskType>> enabledTaskTypesRef = new AtomicReference<>(EnumSet.noneOf(TaskType.class));
+    private final AtomicReference<AuthorizedContent> authRef = new AtomicReference<>(AuthorizedContent.empty());
     private final ModelRegistry modelRegistry;
     private final ElasticInferenceServiceAuthorizationHandler authorizationHandler;
     private final CountDownLatch authorizationCompletedLatch = new CountDownLatch(1);
+    // model ids to model object
+    private final Map<String, Model> defaultModels;
 
     public ElasticInferenceService(
         HttpRequestSender.Factory factory,
@@ -104,15 +116,41 @@ public class ElasticInferenceService extends SenderService {
         this.modelRegistry = Objects.requireNonNull(modelRegistry);
         this.authorizationHandler = Objects.requireNonNull(authorizationHandler);
 
-        configuration = new Configuration(enabledTaskTypesRef.get());
+        configuration = new Configuration(authRef.get().taskTypesAndModels.getAuthorizedTaskTypes());
+        defaultModels = initDefaultEndpoints(elasticInferenceServiceComponents);
 
         getAuthorization();
+    }
+
+    private static Map<String, Model> initDefaultEndpoints(ElasticInferenceServiceComponents elasticInferenceServiceComponents) {
+        return Map.of(
+            DEFAULT_CHAT_COMPLETION_MODEL_ID_V1,
+            new ElasticInferenceServiceCompletionModel(
+                DEFAULT_CHAT_COMPLETION_ENDPOINT_ID_V1,
+                TaskType.CHAT_COMPLETION,
+                NAME,
+                new ElasticInferenceServiceCompletionServiceSettings(DEFAULT_CHAT_COMPLETION_MODEL_ID_V1, null),
+                EmptyTaskSettings.INSTANCE,
+                EmptySecretSettings.INSTANCE,
+                elasticInferenceServiceComponents
+            )
+        );
+    }
+
+    private record AuthorizedContent(
+        ElasticInferenceServiceAuthorization taskTypesAndModels,
+        List<DefaultConfigId> configIds,
+        List<Model> modelObjects
+    ) {
+        static AuthorizedContent empty() {
+            return new AuthorizedContent(ElasticInferenceServiceAuthorization.newDisabledService(), List.of(), List.of());
+        }
     }
 
     private void getAuthorization() {
         try {
             ActionListener<ElasticInferenceServiceAuthorization> listener = ActionListener.wrap(result -> {
-                setEnabledTaskTypes(result);
+                setAuthorizedContent(result);
                 authorizationCompletedLatch.countDown();
             }, e -> {
                 // we don't need to do anything if there was a failure, everything is disabled by default
@@ -126,17 +164,63 @@ public class ElasticInferenceService extends SenderService {
         }
     }
 
-    private synchronized void setEnabledTaskTypes(ElasticInferenceServiceAuthorization auth) {
-        enabledTaskTypesRef.set(filterTaskTypesByAuthorization(auth));
-        configuration = new Configuration(enabledTaskTypesRef.get());
+    private synchronized void setAuthorizedContent(ElasticInferenceServiceAuthorization auth) {
+        var authorizedTaskTypesAndModels = auth.newLimitedToTaskTypes(EnumSet.copyOf(IMPLEMENTED_TASK_TYPES));
+
+        // recalculate which default config ids and models are authorized now
+        var authorizedDefaultConfigIds = getAuthorizedDefaultConfigIds(auth);
+        var authorizedDefaultModelObjects = getAuthorizedDefaultModelsObjects(auth);
+        authRef.set(new AuthorizedContent(authorizedTaskTypesAndModels, authorizedDefaultConfigIds, authorizedDefaultModelObjects));
+
+        configuration = new Configuration(authRef.get().taskTypesAndModels.getAuthorizedTaskTypes());
 
         defaultConfigIds().forEach(modelRegistry::addDefaultIds);
     }
 
-    private static EnumSet<TaskType> filterTaskTypesByAuthorization(ElasticInferenceServiceAuthorization auth) {
-        var implementedTaskTypes = EnumSet.copyOf(IMPLEMENTED_TASK_TYPES);
-        implementedTaskTypes.retainAll(auth.enabledTaskTypes());
-        return implementedTaskTypes;
+    private List<DefaultConfigId> getAuthorizedDefaultConfigIds(ElasticInferenceServiceAuthorization auth) {
+        var authorizedDefaultModelIds = getAuthorizedDefaultModelIds(auth);
+
+        var authorizedConfigIds = new ArrayList<DefaultConfigId>();
+        for (var id : authorizedDefaultModelIds) {
+            var model = defaultModels.get(id);
+            if (model != null) {
+                if (auth.getAuthorizedTaskTypes().contains(model.getTaskType()) == false) {
+                    logger.warn(
+                        Strings.format(
+                            "The authorization response included the default model: %s, "
+                                + "but did not authorize the assumed task type of the model: %s. Enabling model.",
+                            id,
+                            model.getTaskType()
+                        )
+                    );
+                }
+                authorizedConfigIds.add(new DefaultConfigId(model.getInferenceEntityId(), model.getTaskType(), this));
+            }
+        }
+
+        return authorizedConfigIds;
+    }
+
+    private Set<String> getAuthorizedDefaultModelIds(ElasticInferenceServiceAuthorization auth) {
+        var authorizedModels = auth.getAuthorizedModelIds();
+        var authorizedDefaultModelIds = new HashSet<>(defaultModels.keySet());
+        authorizedDefaultModelIds.retainAll(authorizedModels);
+
+        return authorizedDefaultModelIds;
+    }
+
+    private List<Model> getAuthorizedDefaultModelsObjects(ElasticInferenceServiceAuthorization auth) {
+        var authorizedDefaultModelIds = getAuthorizedDefaultModelIds(auth);
+
+        var authorizedModels = new ArrayList<Model>();
+        for (var id : authorizedDefaultModelIds) {
+            var model = defaultModels.get(id);
+            if (model != null) {
+                authorizedModels.add(model);
+            }
+        }
+
+        return authorizedModels;
     }
 
     // Default for testing
@@ -152,20 +236,24 @@ public class ElasticInferenceService extends SenderService {
 
     @Override
     public synchronized Set<TaskType> supportedStreamingTasks() {
-        var enabledStreamingTaskTypes = EnumSet.of(TaskType.CHAT_COMPLETION);
-        enabledStreamingTaskTypes.retainAll(enabledTaskTypesRef.get());
+        var authorizedStreamingTaskTypes = EnumSet.of(TaskType.CHAT_COMPLETION);
+        authorizedStreamingTaskTypes.retainAll(authRef.get().taskTypesAndModels.getAuthorizedTaskTypes());
 
-        if (enabledStreamingTaskTypes.isEmpty() == false) {
-            enabledStreamingTaskTypes.add(TaskType.ANY);
+        if (authorizedStreamingTaskTypes.isEmpty() == false) {
+            authorizedStreamingTaskTypes.add(TaskType.ANY);
         }
 
-        return enabledStreamingTaskTypes;
+        return authorizedStreamingTaskTypes;
     }
 
     @Override
     public synchronized List<DefaultConfigId> defaultConfigIds() {
-        // TODO once we have the enabledTaskTypes figure out which default endpoints we should expose
-        return List.of();
+        return authRef.get().configIds;
+    }
+
+    @Override
+    public synchronized void defaultConfigs(ActionListener<List<Model>> defaultsListener) {
+        defaultsListener.onResponse(authRef.get().modelObjects);
     }
 
     @Override
@@ -298,12 +386,12 @@ public class ElasticInferenceService extends SenderService {
 
     @Override
     public synchronized EnumSet<TaskType> supportedTaskTypes() {
-        return enabledTaskTypesRef.get();
+        return authRef.get().taskTypesAndModels.getAuthorizedTaskTypes();
     }
 
     @Override
     public synchronized boolean hideFromConfigurationApi() {
-        return enabledTaskTypesRef.get().isEmpty();
+        return authRef.get().taskTypesAndModels.isAuthorized() == false;
     }
 
     private static ElasticInferenceServiceModel createModel(
