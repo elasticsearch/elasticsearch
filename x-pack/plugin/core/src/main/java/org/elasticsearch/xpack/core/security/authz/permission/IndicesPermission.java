@@ -25,6 +25,8 @@ import org.elasticsearch.common.util.set.Sets;
 import org.elasticsearch.core.Nullable;
 import org.elasticsearch.core.Tuple;
 import org.elasticsearch.index.Index;
+import org.elasticsearch.logging.LogManager;
+import org.elasticsearch.logging.Logger;
 import org.elasticsearch.xpack.core.security.authz.RestrictedIndices;
 import org.elasticsearch.xpack.core.security.authz.accesscontrol.IndicesAccessControl;
 import org.elasticsearch.xpack.core.security.authz.privilege.IndexPrivilege;
@@ -38,6 +40,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -47,6 +50,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static java.util.Collections.unmodifiableMap;
+import static org.elasticsearch.xpack.core.security.authz.permission.IndicesPermission.Group.maybeAddFailureExclusions;
 
 /**
  * A permission that is based on privileges for index related actions executed
@@ -55,6 +59,7 @@ import static java.util.Collections.unmodifiableMap;
 public final class IndicesPermission {
 
     private static final DeprecationLogger deprecationLogger = DeprecationLogger.getLogger(IndicesPermission.class);
+    private static final Logger logger = LogManager.getLogger(IndicesPermission.class);
 
     public static final IndicesPermission NONE = new IndicesPermission(new RestrictedIndices(Automatons.EMPTY), Group.EMPTY_ARRAY);
 
@@ -152,7 +157,7 @@ public final class IndicesPermission {
                 if (group.allowRestrictedIndices) {
                     restrictedIndices.addAll(Arrays.asList(group.indices()));
                 } else {
-                    ordinaryIndices.addAll(Arrays.asList(group.indices()));
+                    ordinaryIndices.addAll(Arrays.asList(maybeAddFailureExclusions(group.indices())));
                 }
             } else if (isMappingUpdateAction && containsPrivilegeThatGrantsMappingUpdatesForBwc(group)) {
                 // special BWC case for certain privileges: allow put mapping on indices and aliases (but not on data streams), even if
@@ -176,6 +181,7 @@ public final class IndicesPermission {
     public static class IsResourceAuthorizedPredicate implements BiPredicate<String, IndexAbstraction> {
 
         private final BiPredicate<String, IndexAbstraction> biPredicate;
+        private final StringMatcher resourceNameMatcher;
 
         // public for tests
         public IsResourceAuthorizedPredicate(StringMatcher resourceNameMatcher, StringMatcher additionalNonDatastreamNameMatcher) {
@@ -183,11 +189,13 @@ public final class IndicesPermission {
                 assert indexAbstraction == null || name.equals(indexAbstraction.getName());
                 return resourceNameMatcher.test(name)
                     || (isPartOfDatastream(indexAbstraction) == false && additionalNonDatastreamNameMatcher.test(name));
-            });
+            }, resourceNameMatcher);
+
         }
 
-        private IsResourceAuthorizedPredicate(BiPredicate<String, IndexAbstraction> biPredicate) {
+        private IsResourceAuthorizedPredicate(BiPredicate<String, IndexAbstraction> biPredicate, StringMatcher resourceNameMatcher) {
             this.biPredicate = biPredicate;
+            this.resourceNameMatcher = resourceNameMatcher;
         }
 
         /**
@@ -197,7 +205,7 @@ public final class IndicesPermission {
         */
         @Override
         public final IsResourceAuthorizedPredicate and(BiPredicate<? super String, ? super IndexAbstraction> other) {
-            return new IsResourceAuthorizedPredicate(this.biPredicate.and(other));
+            return new IsResourceAuthorizedPredicate(this.biPredicate.and(other), this.resourceNameMatcher);
         }
 
         /**
@@ -207,6 +215,12 @@ public final class IndicesPermission {
          */
         public final boolean test(IndexAbstraction indexAbstraction) {
             return test(indexAbstraction.getName(), indexAbstraction);
+        }
+
+        // TODO: [Jake] is this right ? and use combine, not string concat
+        public final boolean testDataStreamForFailureAccess(IndexAbstraction indexAbstraction) {
+            assert indexAbstraction != null && indexAbstraction.getType() == IndexAbstraction.Type.DATA_STREAM;
+            return resourceNameMatcher.test(indexAbstraction.getName() + "::failures");
         }
 
         /**
@@ -370,18 +384,18 @@ public final class IndicesPermission {
         private final IndexAbstraction indexAbstraction;
 
         private IndexResource(String name, @Nullable IndexAbstraction abstraction, @Nullable IndexComponentSelector selector) {
-            assert name != null : "Resource name cannot be null";
-            assert abstraction == null || abstraction.getName().equals(name)
-                : "Index abstraction has unexpected name [" + abstraction.getName() + "] vs [" + name + "]";
-            assert abstraction == null
-                || selector == null
-                || IndexComponentSelector.FAILURES.equals(selector) == false
-                || abstraction.isDataStreamRelated()
-                : "Invalid index component selector ["
-                    + selector.getKey()
-                    + "] applied to abstraction of type ["
-                    + abstraction.getType()
-                    + "]";
+            // assert name != null : "Resource name cannot be null";
+            // assert abstraction == null || abstraction.getName().equals(name)
+            // : "Index abstraction has unexpected name [" + abstraction.getName() + "] vs [" + name + "]";
+            // assert abstraction == null
+            // || selector == null
+            // || IndexComponentSelector.FAILURES.equals(selector) == false
+            // || abstraction.isDataStreamRelated()
+            // : "Invalid index component selector ["
+            // + selector.getKey()
+            // + "] applied to abstraction of type ["
+            // + abstraction.getType()
+            // + "]";
             this.name = name;
             this.indexAbstraction = abstraction;
             this.selector = selector;
@@ -500,13 +514,18 @@ public final class IndicesPermission {
         int totalResourceCount = 0;
         Map<String, IndexAbstraction> lookup = metadata.getIndicesLookup();
         for (String indexOrAlias : requestedIndicesOrAliases) {
-            // Remove any selectors from abstraction name. Discard them for this check as we do not have access control for them (yet)
             Tuple<String, String> expressionAndSelector = IndexNameExpressionResolver.splitSelectorExpression(indexOrAlias);
-            indexOrAlias = expressionAndSelector.v1();
             IndexComponentSelector selector = expressionAndSelector.v2() == null
                 ? null
                 : IndexComponentSelector.getByKey(expressionAndSelector.v2());
-            final IndexResource resource = new IndexResource(indexOrAlias, lookup.get(indexOrAlias), selector);
+            // If the request has name::data, upstream code will remove ::data from the name
+            // If the request has name::* upstream code will convert to name::failures and name (without ::data)
+            assert selector != IndexComponentSelector.DATA : "Data selector is not allowed in this context";
+            assert selector != IndexComponentSelector.ALL_APPLICABLE : "All selector is not allowed in this context";
+            assert selector == null || selector == IndexComponentSelector.FAILURES
+                : "Only the failures selector " + "or none is not allowed in this context";
+            // look up the IndexAbstraction by the name without the selector, but leave the (::failures) selector for authorization
+            final IndexResource resource = new IndexResource(indexOrAlias, lookup.get(expressionAndSelector.v1()), selector);
             resources.put(resource.name, resource);
             totalResourceCount += resource.size(lookup);
         }
@@ -810,19 +829,24 @@ public final class IndicesPermission {
             @Nullable Set<BytesReference> query,
             boolean allowRestrictedIndices,
             RestrictedIndices restrictedIndices,
-            String... indices
+            final String... indices
         ) {
             assert indices.length != 0;
             this.privilege = privilege;
             this.actionMatcher = privilege.predicate();
             this.indices = indices;
+            // TODO: [Jake] how to support selectors for hasPrivileges ? (are reg-ex's just broken for hasPrivilege index checks ?)
+            // TODO: [Jake] can regular expressions can be used to match failure indices with a single expression ?
+            // TODO: [Jake] ensure that only ::failure selectors can be added the role
+            // TODO: [Jake] ensure that no selectors can be added to remote_indices (or gate usage with a feature flag, or just test)
+            String[] indicesResolved = resolvePatternsForNameMatching(indices);
             this.allowRestrictedIndices = allowRestrictedIndices;
             ConcurrentHashMap<String[], Automaton> indexNameAutomatonMemo = new ConcurrentHashMap<>(1);
             if (allowRestrictedIndices) {
-                this.indexNameMatcher = StringMatcher.of(indices);
+                this.indexNameMatcher = StringMatcher.of(indicesResolved);
                 this.indexNameAutomaton = () -> indexNameAutomatonMemo.computeIfAbsent(indices, k -> Automatons.patterns(indices));
             } else {
-                this.indexNameMatcher = StringMatcher.of(indices).and(name -> restrictedIndices.isRestricted(name) == false);
+                this.indexNameMatcher = StringMatcher.of(indicesResolved).and(name -> restrictedIndices.isRestricted(name) == false);
                 this.indexNameAutomaton = () -> indexNameAutomatonMemo.computeIfAbsent(
                     indices,
                     k -> Automatons.minusAndMinimize(Automatons.patterns(indices), restrictedIndices.getAutomaton())
@@ -830,6 +854,76 @@ public final class IndicesPermission {
             }
             this.fieldPermissions = Objects.requireNonNull(fieldPermissions);
             this.query = query;
+        }
+
+        /**
+         * Helper method to ensure that order of resolving patterns is correct and provide some debug logging
+         * @param indexPatterns The original index patterns as defined in the role
+         * @return the resolved indices that have been transformed
+         */
+        final String[] resolvePatternsForNameMatching(final String[] indexPatterns) {
+            // TODO: [Jake] use trace logging !
+            logger.error(() -> String.format(Locale.ROOT, "original indices: %s", Arrays.toString(indexPatterns)));
+            String[] afterFailureExclusions = maybeAddFailureExclusions(indexPatterns);
+            logger.error(() -> String.format(Locale.ROOT, "after failure exclusions: %s", Arrays.toString(afterFailureExclusions)));
+            return afterFailureExclusions;
+        }
+
+        /**
+         * This method looks for any index patterns in this group that have all the following characteristics:
+         * <ul>
+         *     <li>Index pattern has a trailing wildcard, i.e., {@code name*}</li>
+         *     <li>Index pattern is a regular expression, i.e. {@code /name.*fooba[r]+/}</li>
+         *     <li>Index pattern is not {@code "*"}.</li>
+         * </ul>
+         *
+         * If all of these conditions are met, then the pattern is transformed into a regular expression to exclude failures.
+         * For example:
+         * <ul>
+         *     <li>{@code name*} becomes {@code /(name.*)&~(name.*::failures)/}</li>
+         *     <li>{@code /name.*fooba[r]+/} becomes {@code /(name.*fooba[r]+)&~(name.*fooba[r]+::failures)/}</li>
+         *     <li>{@code na*e} remains {@code na*e} (Lucene regular expressions are always begin/end anchored)</li>
+         * </ul>
+         *
+         * Only the {@code ::failures} selector on non-regular expressions is allowed in the role definition
+         * (ensured by create-time validation).
+         *
+         * @param indexPatterns the index patterns for this group that have been resolved to only contain the
+         *                      {@code ::failures} selector or no selector at all
+         * @return a {@code String[]} of the transformed and/or non-transformed index patterns for this group
+         *         that will be used for authorization purposes
+         */
+        static String[] maybeAddFailureExclusions(final String[] indexPatterns) {
+            String[] indexPatternsWithExclusions = new String[indexPatterns.length];
+            for (int i = 0; i < indexPatterns.length; i++) {
+                assert indexPatterns[i].endsWith("::data") == false : "Data selector is not allowed in this context";
+                assert indexPatterns[i].endsWith("::*") == false : "All selector is not allowed in this context";
+                if (indexPatterns[i].equals("*") == false
+                    && (indexPatterns[i].endsWith("*") || Automatons.isLuceneRegex(indexPatterns[i]))) {
+                    indexPatternsWithExclusions[i] = convertToExcludeFailures(indexPatterns[i]);
+                } else {
+                    indexPatternsWithExclusions[i] = indexPatterns[i];
+                }
+            }
+            return indexPatternsWithExclusions;
+        }
+
+        static String convertToExcludeFailures(String indexPattern) {
+            assert indexPattern != "*" : "* is a special case and should never exclude failures";
+            assert indexPattern.endsWith("*") || Automatons.isLuceneRegex(indexPattern)
+                : "Only patterns with a trailing wildcard " + "or regular expressions should explicitly exclude failures";
+            // TODO: [Jake] also handle properly convert `?` and `\\` and `.` cases for non-regular expressions
+            // TODO: [Jake] look for other special characters allowed by Lucene regular expressions vs. special chars in role vs. special
+            // chars allowed in index names
+            if (indexPattern.endsWith("*")) {
+                return "/(" + indexPattern.replaceAll("\\*", ".*") + ")&~(" + indexPattern.replaceAll("\\*", ".*") + "::failures)/";
+            } else if (Automatons.isLuceneRegex(indexPattern)) {
+                String innerPattern = indexPattern.substring(1, indexPattern.length() - 1);
+                // TODO: [Jake] is it safe to have double parenthesis in the regular expression if the regex already had them ?
+                return "/(" + innerPattern + ")&~(" + innerPattern + "::failures)/";
+            } else {
+                throw new IllegalArgumentException("Unexpected index pattern: " + indexPattern); // should never happen
+            }
         }
 
         public IndexPrivilege privilege() {
