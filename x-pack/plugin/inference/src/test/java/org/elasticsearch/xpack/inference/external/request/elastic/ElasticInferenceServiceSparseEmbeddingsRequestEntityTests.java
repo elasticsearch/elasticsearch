@@ -21,23 +21,25 @@ import static org.elasticsearch.xpack.inference.MatchersUtils.equalToIgnoringWhi
 public class ElasticInferenceServiceSparseEmbeddingsRequestEntityTests extends ESTestCase {
 
     public void testToXContent_SingleInput() throws IOException {
-        var entity = new ElasticInferenceServiceSparseEmbeddingsRequestEntity(List.of("abc"));
+        var entity = new ElasticInferenceServiceSparseEmbeddingsRequestEntity(List.of("abc"), "my-model-id");
         String xContentString = xContentEntityToString(entity);
         assertThat(xContentString, equalToIgnoringWhitespaceInJsonString("""
             {
-                "input": ["abc"]
+                "input": ["abc"],
+                "model_id": "my-model-id"
             }"""));
     }
 
     public void testToXContent_MultipleInputs() throws IOException {
-        var entity = new ElasticInferenceServiceSparseEmbeddingsRequestEntity(List.of("abc", "def"));
+        var entity = new ElasticInferenceServiceSparseEmbeddingsRequestEntity(List.of("abc", "def"), "my-model-id");
         String xContentString = xContentEntityToString(entity);
         assertThat(xContentString, equalToIgnoringWhitespaceInJsonString("""
             {
                 "input": [
                     "abc",
                     "def"
-                ]
+                ],
+                "model_id": "my-model-id"
             }
             """));
     }

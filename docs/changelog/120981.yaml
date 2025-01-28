@@ -1,0 +1,6 @@
+pr: 120981
+summary: "[DO NOT MERGE][Inference API] Pass model ID in sparse model inference request\
+  \ body"
+area: Inference
+type: enhancement
+issues: []

@@ -48,7 +48,9 @@ public class ElasticInferenceServiceSparseEmbeddingsRequest implements ElasticIn
     @Override
     public HttpRequest createHttpRequest() {
         var httpPost = new HttpPost(uri);
-        var requestEntity = Strings.toString(new ElasticInferenceServiceSparseEmbeddingsRequestEntity(truncationResult.input()));
+        var requestEntity = Strings.toString(
+            new ElasticInferenceServiceSparseEmbeddingsRequestEntity(truncationResult.input(), model.getServiceSettings().modelId())
+        );
 
         ByteArrayEntity byteEntity = new ByteArrayEntity(requestEntity.getBytes(StandardCharsets.UTF_8));
         httpPost.setEntity(byteEntity);
