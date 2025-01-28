@@ -199,7 +199,16 @@ public class RestEntitlementsCheckAction extends BaseRestHandler {
         entry("runtime_load", forPlugins(LoadNativeLibrariesCheckActions::runtimeLoad)),
         entry("runtime_load_library", forPlugins(LoadNativeLibrariesCheckActions::runtimeLoadLibrary)),
         entry("system_load", forPlugins(LoadNativeLibrariesCheckActions::systemLoad)),
-        entry("system_load_library", forPlugins(LoadNativeLibrariesCheckActions::systemLoadLibrary))
+        entry("system_load_library", forPlugins(LoadNativeLibrariesCheckActions::systemLoadLibrary)),
+        entry("create_scanner", forPlugins(FileCheckActions::createScannerFile)),
+        entry("create_scanner_with_charset", forPlugins(FileCheckActions::createScannerFileWithCharset)),
+        entry("create_scanner_with_charset_name", forPlugins(FileCheckActions::createScannerFileWithCharsetName)),
+        entry("create_file_output_stream_string", forPlugins(FileCheckActions::createFileOutputStreamString)),
+        entry("create_file_output_stream_string_with_append", forPlugins(FileCheckActions::createFileOutputStreamStringWithAppend)),
+        entry("create_file_output_stream_file", forPlugins(FileCheckActions::createFileOutputStreamFile)),
+        entry("create_file_output_stream_file_with_append", forPlugins(FileCheckActions::createFileOutputStreamFileWithAppend)),
+        entry("files_probe_content_type", forPlugins(FileCheckActions::filesProbeContentType)),
+        entry("files_set_owner", forPlugins(FileCheckActions::filesSetOwner))
     )
         .filter(entry -> entry.getValue().fromJavaVersion() == null || Runtime.version().feature() >= entry.getValue().fromJavaVersion())
         .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
