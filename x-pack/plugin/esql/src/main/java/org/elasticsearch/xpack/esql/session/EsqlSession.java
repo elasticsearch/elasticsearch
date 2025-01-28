@@ -73,6 +73,8 @@ import org.elasticsearch.xpack.esql.plan.physical.EstimatesRowSize;
 import org.elasticsearch.xpack.esql.plan.physical.FragmentExec;
 import org.elasticsearch.xpack.esql.plan.physical.PhysicalPlan;
 import org.elasticsearch.xpack.esql.planner.mapper.Mapper;
+import org.elasticsearch.xpack.esql.planner.mapper.preprocessor.MapperPreprocessorExecutor;
+import org.elasticsearch.xpack.esql.plugin.TransportActionServices;
 import org.elasticsearch.xpack.esql.telemetry.PlanTelemetry;
 
 import java.util.ArrayList;
@@ -114,7 +116,7 @@ public class EsqlSession {
     private final PhysicalPlanOptimizer physicalPlanOptimizer;
     private final PlanTelemetry planTelemetry;
     private final IndicesExpressionGrouper indicesExpressionGrouper;
-    private final QueryBuilderResolver queryBuilderResolver;
+    private final MapperPreprocessorExecutor mapperPreprocessorExecutor;
 
     public EsqlSession(
         String sessionId,
@@ -128,7 +130,7 @@ public class EsqlSession {
         Verifier verifier,
         PlanTelemetry planTelemetry,
         IndicesExpressionGrouper indicesExpressionGrouper,
-        QueryBuilderResolver queryBuilderResolver
+        TransportActionServices services
     ) {
         this.sessionId = sessionId;
         this.configuration = configuration;
@@ -142,7 +144,7 @@ public class EsqlSession {
         this.physicalPlanOptimizer = new PhysicalPlanOptimizer(new PhysicalOptimizerContext(configuration));
         this.planTelemetry = planTelemetry;
         this.indicesExpressionGrouper = indicesExpressionGrouper;
-        this.queryBuilderResolver = queryBuilderResolver;
+        this.mapperPreprocessorExecutor = new MapperPreprocessorExecutor(services);
     }
 
     public String sessionId() {
@@ -162,19 +164,23 @@ public class EsqlSession {
             new EsqlSessionCCSUtils.CssPartialErrorsActionListener(executionInfo, listener) {
                 @Override
                 public void onResponse(LogicalPlan analyzedPlan) {
-                    try {
-                        var optimizedPlan = optimizedPlan(analyzedPlan);
-                        queryBuilderResolver.resolveQueryBuilders(
-                            optimizedPlan,
-                            listener,
-                            (newPlan, next) -> executeOptimizedPlan(request, executionInfo, planRunner, newPlan, next)
-                        );
-                    } catch (Exception e) {
-                        listener.onFailure(e);
-                    }
+                    preMapping(request, executionInfo, planRunner, optimizedPlan(analyzedPlan), listener);
                 }
             }
         );
+    }
+
+    public void preMapping(
+        EsqlQueryRequest request,
+        EsqlExecutionInfo executionInfo,
+        PlanRunner planRunner,
+        LogicalPlan optimizedPlan,
+        ActionListener<Result> listener
+    ) {
+        mapperPreprocessorExecutor.execute(optimizedPlan, listener.delegateFailureAndWrap((l, p) -> {
+            p.setOptimized(); // might have been updated by the preprocessor
+            executeOptimizedPlan(request, executionInfo, planRunner, p, listener);
+        }));
     }
 
     /**
