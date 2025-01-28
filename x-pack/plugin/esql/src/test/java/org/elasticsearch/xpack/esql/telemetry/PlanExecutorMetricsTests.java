@@ -126,6 +126,7 @@ public class PlanExecutorMetricsTests extends ESTestCase {
             groupIndicesByCluster,
             runPhase,
             EsqlTestUtils.MOCK_QUERY_BUILDER_RESOLVER,
+            EsqlTestUtils.MOCK_INFERENCE_SERVICE,
             new ActionListener<>() {
                 @Override
                 public void onResponse(Result result) {
@@ -157,6 +158,7 @@ public class PlanExecutorMetricsTests extends ESTestCase {
             groupIndicesByCluster,
             runPhase,
             EsqlTestUtils.MOCK_QUERY_BUILDER_RESOLVER,
+            EsqlTestUtils.MOCK_INFERENCE_SERVICE,
             new ActionListener<>() {
                 @Override
                 public void onResponse(Result result) {}

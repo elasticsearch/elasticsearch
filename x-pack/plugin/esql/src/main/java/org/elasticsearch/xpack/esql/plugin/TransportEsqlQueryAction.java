@@ -51,6 +51,7 @@ import org.elasticsearch.xpack.esql.enrich.EnrichLookupService;
 import org.elasticsearch.xpack.esql.enrich.EnrichPolicyResolver;
 import org.elasticsearch.xpack.esql.enrich.LookupFromIndexService;
 import org.elasticsearch.xpack.esql.execution.PlanExecutor;
+import org.elasticsearch.xpack.esql.inference.InferenceService;
 import org.elasticsearch.xpack.esql.session.Configuration;
 import org.elasticsearch.xpack.esql.session.EsqlSession.PlanRunner;
 import org.elasticsearch.xpack.esql.session.QueryBuilderResolver;
@@ -83,6 +84,7 @@ public class TransportEsqlQueryAction extends HandledTransportAction<EsqlQueryRe
     private final RemoteClusterService remoteClusterService;
     private final QueryBuilderResolver queryBuilderResolver;
     private final UsageService usageService;
+    private final InferenceService inferenceService;
     // Listeners for active async queries, key being the async task execution ID
     private final Map<String, EsqlQueryListener> asyncListeners = ConcurrentCollections.newConcurrentMap();
 
@@ -128,6 +130,7 @@ public class TransportEsqlQueryAction extends HandledTransportAction<EsqlQueryRe
             bigArrays,
             blockFactory
         );
+        this.inferenceService = new InferenceService(client);
         this.computeService = new ComputeService(
             searchService,
             transportService,
@@ -137,6 +140,7 @@ public class TransportEsqlQueryAction extends HandledTransportAction<EsqlQueryRe
             clusterService,
             threadPool,
             bigArrays,
+            inferenceService,
             blockFactory
         );
         this.asyncTaskManagementService = new AsyncTaskManagementService<>(
@@ -259,6 +263,7 @@ public class TransportEsqlQueryAction extends HandledTransportAction<EsqlQueryRe
             remoteClusterService,
             planRunner,
             queryBuilderResolver,
+            inferenceService,
             ActionListener.wrap(result -> {
                 recordCCSTelemetry(task, executionInfo, request, null);
                 listener.onResponse(toResponse(task, request, configuration, result));

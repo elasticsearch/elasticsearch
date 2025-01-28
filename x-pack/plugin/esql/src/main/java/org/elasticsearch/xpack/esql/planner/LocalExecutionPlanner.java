@@ -57,6 +57,7 @@ import org.elasticsearch.xpack.esql.core.expression.Expressions;
 import org.elasticsearch.xpack.esql.core.expression.FieldAttribute;
 import org.elasticsearch.xpack.esql.core.expression.FoldContext;
 import org.elasticsearch.xpack.esql.core.expression.Literal;
+import org.elasticsearch.xpack.esql.core.expression.MetadataAttribute;
 import org.elasticsearch.xpack.esql.core.expression.NameId;
 import org.elasticsearch.xpack.esql.core.expression.NamedExpression;
 import org.elasticsearch.xpack.esql.core.expression.TypedAttribute;
@@ -70,6 +71,8 @@ import org.elasticsearch.xpack.esql.enrich.LookupFromIndexService;
 import org.elasticsearch.xpack.esql.evaluator.EvalMapper;
 import org.elasticsearch.xpack.esql.evaluator.command.GrokEvaluatorExtracter;
 import org.elasticsearch.xpack.esql.expression.Order;
+import org.elasticsearch.xpack.esql.inference.InferenceService;
+import org.elasticsearch.xpack.esql.inference.RerankOperator;
 import org.elasticsearch.xpack.esql.plan.physical.AggregateExec;
 import org.elasticsearch.xpack.esql.plan.physical.DissectExec;
 import org.elasticsearch.xpack.esql.plan.physical.EnrichExec;
@@ -92,6 +95,7 @@ import org.elasticsearch.xpack.esql.plan.physical.PhysicalPlan;
 import org.elasticsearch.xpack.esql.plan.physical.ProjectExec;
 import org.elasticsearch.xpack.esql.plan.physical.ShowExec;
 import org.elasticsearch.xpack.esql.plan.physical.TopNExec;
+import org.elasticsearch.xpack.esql.plan.physical.inference.RerankExec;
 import org.elasticsearch.xpack.esql.plugin.QueryPragmas;
 import org.elasticsearch.xpack.esql.session.Configuration;
 
@@ -131,6 +135,7 @@ public class LocalExecutionPlanner {
     private final Supplier<ExchangeSink> exchangeSinkSupplier;
     private final EnrichLookupService enrichLookupService;
     private final LookupFromIndexService lookupFromIndexService;
+    private final InferenceService inferenceService;
     private final PhysicalOperationProviders physicalOperationProviders;
 
     public LocalExecutionPlanner(
@@ -145,6 +150,7 @@ public class LocalExecutionPlanner {
         Supplier<ExchangeSink> exchangeSinkSupplier,
         EnrichLookupService enrichLookupService,
         LookupFromIndexService lookupFromIndexService,
+        InferenceService inferenceService,
         PhysicalOperationProviders physicalOperationProviders
     ) {
         this.sessionId = sessionId;
@@ -157,6 +163,7 @@ public class LocalExecutionPlanner {
         this.exchangeSinkSupplier = exchangeSinkSupplier;
         this.enrichLookupService = enrichLookupService;
         this.lookupFromIndexService = lookupFromIndexService;
+        this.inferenceService = inferenceService;
         this.physicalOperationProviders = physicalOperationProviders;
         this.configuration = configuration;
     }
@@ -216,6 +223,8 @@ public class LocalExecutionPlanner {
             return planLimit(limit, context);
         } else if (node instanceof MvExpandExec mvExpand) {
             return planMvExpand(mvExpand, context);
+        } else if (node instanceof RerankExec rerank) {
+            return planRerank(rerank, context);
         }
         // source nodes
         else if (node instanceof EsQueryExec esQuery) {
@@ -680,6 +689,30 @@ public class LocalExecutionPlanner {
     private PhysicalOperation planLimit(LimitExec limit, LocalExecutionPlannerContext context) {
         PhysicalOperation source = plan(limit.child(), context);
         return source.with(new Factory((Integer) limit.limit().fold(context.foldCtx)), source.layout);
+    }
+
+    private PhysicalOperation planRerank(RerankExec rerank, LocalExecutionPlannerContext context) {
+        PhysicalOperation source = plan(rerank.child(), context);
+
+        var inputEvaluatorSupplier = EvalMapper.toEvaluator(context.foldCtx(), rerank.input(), source.layout);
+
+        String inferenceId = rerank.inferenceId();
+        String queryText = rerank.queryText();
+
+        int scoreChannel = -1;
+
+        for (Attribute attr : rerank.output()) {
+            if (attr.name().equals(MetadataAttribute.SCORE)) {
+                scoreChannel = source.layout.get(attr.id()).channel();
+            }
+        }
+
+        logger.warn("layout {}", source.layout);
+
+        return source.with(
+            new RerankOperator.Factory(inferenceService, inferenceId, queryText, inputEvaluatorSupplier, scoreChannel, 10),
+            source.layout
+        );
     }
 
     private PhysicalOperation planMvExpand(MvExpandExec mvExpandExec, LocalExecutionPlannerContext context) {

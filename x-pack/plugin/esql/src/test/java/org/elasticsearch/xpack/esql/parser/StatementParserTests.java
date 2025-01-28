@@ -62,6 +62,7 @@ import org.elasticsearch.xpack.esql.plan.logical.Project;
 import org.elasticsearch.xpack.esql.plan.logical.Rename;
 import org.elasticsearch.xpack.esql.plan.logical.Row;
 import org.elasticsearch.xpack.esql.plan.logical.UnresolvedRelation;
+import org.elasticsearch.xpack.esql.plan.logical.inference.Rerank;
 import org.elasticsearch.xpack.esql.plan.logical.join.JoinTypes;
 import org.elasticsearch.xpack.esql.plan.logical.join.LookupJoin;
 
@@ -2137,6 +2138,18 @@ public class StatementParserTests extends AbstractStatementParserTests {
         assertThat(lookup.matchFields(), hasSize(1));
         var matchField = as(lookup.matchFields().get(0), UnresolvedAttribute.class);
         assertThat(matchField.name(), equalTo("j"));
+    }
+
+    public void testRerankCommand() {
+        assumeTrue("requires snapshot build", Build.current().isSnapshot());
+
+        var plan = processingCommand("RERANK \"query text\" ON CONCAT(title, description) WITH \"inferenceID\"");
+        var rerank = as(plan, Rerank.class);
+
+        // Checking constant // foldable expressions
+        assertThat(rerank.queryText(), equalTo("query text"));
+        assertThat(rerank.inferenceId(), equalTo("inferenceID"));
+        assertThat(rerank.input(), equalTo(function("CONCAT", List.of(attribute("title"), attribute("description")))));
     }
 
     public void testInlineConvertUnsupportedType() {

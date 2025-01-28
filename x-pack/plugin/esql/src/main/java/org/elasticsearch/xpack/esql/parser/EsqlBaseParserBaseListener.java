@@ -961,6 +961,18 @@ public class EsqlBaseParserBaseListener implements EsqlBaseParserListener {
    *
    * <p>The default implementation does nothing.</p>
    */
+  @Override public void enterStringOrParameter(EsqlBaseParser.StringOrParameterContext ctx) { }
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The default implementation does nothing.</p>
+   */
+  @Override public void exitStringOrParameter(EsqlBaseParser.StringOrParameterContext ctx) { }
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The default implementation does nothing.</p>
+   */
   @Override public void enterComparisonOperator(EsqlBaseParser.ComparisonOperatorContext ctx) { }
   /**
    * {@inheritDoc}
@@ -1052,6 +1064,18 @@ public class EsqlBaseParserBaseListener implements EsqlBaseParserListener {
    * <p>The default implementation does nothing.</p>
    */
   @Override public void exitInlinestatsCommand(EsqlBaseParser.InlinestatsCommandContext ctx) { }
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The default implementation does nothing.</p>
+   */
+  @Override public void enterRerankCommand(EsqlBaseParser.RerankCommandContext ctx) { }
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The default implementation does nothing.</p>
+   */
+  @Override public void exitRerankCommand(EsqlBaseParser.RerankCommandContext ctx) { }
   /**
    * {@inheritDoc}
    *
